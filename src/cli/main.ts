@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { runAudit } from "../audit/audit.js";
+import { startPossumMcpServer } from "../mcp/server.js";
 
 export interface CliDependencies {
   cwd: string;
@@ -50,8 +51,8 @@ export function buildProgram(deps: CliDependencies): Command {
       deps.stdout(`npx playwright test ${resolve(deps.cwd, reproPath)}`);
     });
 
-  program.command("mcp").description("Start the Possum MCP server.").action(() => {
-    deps.stdout("MCP server implementation is available through src/mcp/server.ts");
+  program.command("mcp").description("Start the Possum MCP server over stdio.").action(async () => {
+    await startPossumMcpServer({ rootDir: deps.cwd });
   });
 
   return program;

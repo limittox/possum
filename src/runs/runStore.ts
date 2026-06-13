@@ -1,6 +1,6 @@
-import { mkdir, writeFile } from "node:fs/promises";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import { RunReport, RunReportSchema } from "../contracts/findings.js";
+import { Finding, RunReport, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
 import { renderRunMarkdown } from "../report/renderMarkdown.js";
 
@@ -46,4 +46,19 @@ export async function writeSurface(store: RunStore, runId: string, surface: Page
   await writeFile(surfaceJsonPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
 
   return surfaceJsonPath;
+}
+
+export async function readRunReport(store: RunStore, runId: string): Promise<RunReport> {
+  const findingsJsonPath = join(store.runsDir, runId, "findings.json");
+  const raw = await readFile(findingsJsonPath, "utf8");
+  return RunReportSchema.parse(JSON.parse(raw));
+}
+
+export async function readReportMarkdown(store: RunStore, runId: string): Promise<string> {
+  return readFile(join(store.runsDir, runId, "report.md"), "utf8");
+}
+
+export async function readFinding(store: RunStore, runId: string, findingId: string): Promise<Finding | undefined> {
+  const report = await readRunReport(store, runId);
+  return report.findings.find((finding) => finding.id === findingId);
 }

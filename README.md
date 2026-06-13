@@ -20,6 +20,7 @@ coding agent can fix.
   repro scripts.
 - Replays failures with `possum replay <finding>`.
 - Renders existing runs with `possum report`.
+- Starts a stdio MCP server with `possum mcp`.
 
 ## Coding Agent Integration
 

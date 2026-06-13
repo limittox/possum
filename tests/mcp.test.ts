@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { getPossumMcpToolNames } from "../src/mcp/server.js";
+import { createPossumMcpServer, getPossumMcpToolNames } from "../src/mcp/server.js";
 
 describe("Possum MCP server", () => {
   it("exposes coding-agent audit tools", () => {
@@ -10,5 +10,11 @@ describe("Possum MCP server", () => {
       "replay_finding",
       "get_report"
     ]);
+  });
+
+  it("creates an MCP server instance for stdio clients", () => {
+    const server = createPossumMcpServer();
+
+    expect(server).toHaveProperty("connect");
   });
 });
