@@ -1,0 +1,34 @@
+{
+  "name": "possum",
+  "version": "0.1.0",
+  "description": "Open-source local customer simulator for AI-built apps.",
+  "license": "Apache-2.0",
+  "type": "module",
+  "bin": {
+    "possum": "./dist/src/cli/main.js"
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.json && node -e \"require('node:fs').chmodSync('dist/src/cli/main.js', 0o755)\"",
+    "test": "vitest run",
+    "typecheck": "tsc -p tsconfig.json --noEmit"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "commander": "^12.1.0",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.15",
+    "playwright": "^1.45.3",
+    "typescript": "^5.5.4",
+    "vitest": "^2.0.5"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
