@@ -5,6 +5,7 @@ import { resolve } from "node:path";
 import { z } from "zod";
 import * as z4 from "zod/v4";
 import { runAudit } from "../audit/audit.js";
+import { buildReplayCommand } from "../replay/replayCommand.js";
 import { createRunStore, readFinding, readReportMarkdown, readRunReport } from "../runs/runStore.js";
 
 export const POSSUM_MCP_TOOL_NAMES = [
@@ -196,7 +197,8 @@ async function getFindingTool(rawArgs: unknown, dependencies: PossumMcpDependenc
 async function replayFindingTool(rawArgs: unknown, dependencies: PossumMcpDependencies): Promise<CallToolResult> {
   const args = ReplayFindingArgsSchema.parse(rawArgs);
   const rootDir = resolveRootDir(args.rootDir, dependencies);
-  const command = `npx playwright test ${resolve(rootDir, args.reproPath)}`;
+  const replay = buildReplayCommand(rootDir, args.reproPath);
+  const command = [replay.command, ...replay.args].join(" ");
 
   return textResult(command, { command });
 }

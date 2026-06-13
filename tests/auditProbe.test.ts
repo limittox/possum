@@ -96,5 +96,8 @@ describe("runAudit", () => {
     await expect(readFile(join(findingDir, "repro.spec.ts"), "utf8")).resolves.toContain(
       "http://127.0.0.1:9"
     );
+    await expect(readFile(join(result.runDir, "playwright.config.ts"), "utf8")).resolves.toContain(
+      "testDir: \".\""
+    );
   });
 });

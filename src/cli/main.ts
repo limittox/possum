@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
-import { join, resolve } from "node:path";
+import { join } from "node:path";
 import { runAudit } from "../audit/audit.js";
 import { startPossumMcpServer } from "../mcp/server.js";
+import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
 
 export interface CliDependencies {
   cwd: string;
   stdout: (line: string) => void;
+  execFile?: ReplayExecFile;
   now?: Date;
+  setExitCode?: (code: number) => void;
 }
 
 export function buildProgram(deps: CliDependencies): Command {
@@ -45,10 +48,19 @@ export function buildProgram(deps: CliDependencies): Command {
 
   program
     .command("replay")
-    .description("Print the Playwright command for a finding repro.")
+    .description("Run the Playwright repro for a finding.")
     .argument("<reproPath>", "Path to a generated repro.spec.ts")
-    .action((reproPath: string) => {
-      deps.stdout(`npx playwright test ${resolve(deps.cwd, reproPath)}`);
+    .action(async (reproPath: string) => {
+      const result = await runReplay({ rootDir: deps.cwd, reproPath, execFile: deps.execFile });
+      if (result.stdout) {
+        deps.stdout(result.stdout.trimEnd());
+      }
+      if (result.stderr) {
+        deps.stdout(result.stderr.trimEnd());
+      }
+      if (result.exitCode !== 0) {
+        (deps.setExitCode ?? ((code: number) => (process.exitCode = code)))(result.exitCode);
+      }
     });
 
   program.command("mcp").description("Start the Possum MCP server over stdio.").action(async () => {

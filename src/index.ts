@@ -6,4 +6,5 @@ export * from "./contracts/surface.js";
 export * from "./mcp/server.js";
 export * from "./personas/beginner.js";
 export * from "./report/renderMarkdown.js";
+export * from "./replay/replayCommand.js";
 export * from "./runs/runStore.js";

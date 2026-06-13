@@ -13,6 +13,7 @@ export interface RunStore {
 export interface WrittenRun {
   runDir: string;
   findingsJsonPath: string;
+  playwrightConfigPath: string;
   reportMarkdownPath: string;
 }
 
@@ -33,13 +34,15 @@ export async function writeRunReport(store: RunStore, report: RunReport): Promis
   const parsed = RunReportSchema.parse(report);
   const runDir = join(store.runsDir, parsed.runId);
   const findingsJsonPath = join(runDir, "findings.json");
+  const playwrightConfigPath = join(runDir, "playwright.config.ts");
   const reportMarkdownPath = join(runDir, "report.md");
 
   await mkdir(runDir, { recursive: true });
   await writeFile(findingsJsonPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+  await writeFile(playwrightConfigPath, renderPlaywrightConfig(), "utf8");
   await writeFile(reportMarkdownPath, renderRunMarkdown(parsed), "utf8");
 
-  return { runDir, findingsJsonPath, reportMarkdownPath };
+  return { runDir, findingsJsonPath, playwrightConfigPath, reportMarkdownPath };
 }
 
 export async function writeSurface(store: RunStore, runId: string, surface: PageSurface): Promise<string> {
@@ -82,4 +85,17 @@ export async function writeFindingArtifacts(
   await writeFile(join(findingDir, "repro.spec.ts"), artifacts.reproSpec, "utf8");
 
   return findingDir;
+}
+
+function renderPlaywrightConfig(): string {
+  return [
+    'import { defineConfig } from "@playwright/test";',
+    "",
+    "export default defineConfig({",
+    '  testDir: ".",',
+    '  testMatch: ["**/*.spec.ts"],',
+    "  timeout: 10_000",
+    "});",
+    ""
+  ].join("\n");
 }
