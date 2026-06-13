@@ -1,234 +1,372 @@
 # Possum v1 Design
 
 **Date:** 2026-06-13
-**Status:** Approved direction — design spec for v1.
+**Status:** Approved direction - design spec v1.
 **Supersedes:** [2026-06-13-possum-differentiator-brainstorm.md](2026-06-13-possum-differentiator-brainstorm.md)
-(kept as history; note v1 has since pivoted from "coding agent" to "testing agent" and from
-CLI tools to web UIs).
 
 ---
 
 ## 1. What Possum Is
 
-> **AI built your app. Possum is the customer who tries to use it — before real ones do.**
+> **Can a real customer understand and use the app your coding agent just built?**
 
-Possum is a terminal-native testing agent. It unleashes a cast of simulated customers —
-the beginner, the impatient, the hostile, the returning — on your web app inside a sandbox,
-watches where they fail, and files bug reports with screenshots and replayable repro
-scripts that your coding agent can fix.
+Possum is the open-source local customer simulator for AI-built web apps. It runs
+against a local app, reads what the app claims to do, sends simulated customers
+through the product in a sandboxed browser, and emits reproducible evidence a
+coding agent can fix.
 
-**What possum is NOT:**
-- Not a coding agent. It never edits your code. It finds problems and hands them to the
-  coding agent you already use (Claude Code, Cursor, Codex).
-- Not a test-case generator. It doesn't write test files into your suite; it *uses* your
-  software the way customers do.
-- Not a coverage platform. No dashboard, no SaaS, no "test management." Findings are plain
-  files in your repo.
+Possum's core is local, inspectable, and auditable: browser execution, persona
+prompts, sandbox rules, finding judge, repro generation, and report format all
+belong in the open-source distribution.
 
-**Audience:** developers shipping web apps with AI coding tools — solo devs, vibe coders,
-small product teams with no QA function. They live in the terminal; possum meets them there.
+**What Possum is not:**
+
+- Not a coding agent. It never edits code; it finds problems and hands them to
+  the coding agent a developer already uses.
+- Not a test-case generator. It does not write a durable regression suite into
+  the app; it uses the app the way customers do.
+- Not a QA platform. There is no required SaaS dashboard, account, or test
+  management workflow. Findings are plain files in the repo.
+- Not a security scanner. The hostile persona reports robustness failures and
+  suspicious behavior, but Possum does not claim security audit coverage.
+
+**Audience:** developers shipping web apps with AI coding tools, especially solo
+developers and small teams without a dedicated QA function. They live in the
+terminal; Possum meets them there.
 
 ## 2. Decisions Log
 
 | Decision | Choice | Why |
 |---|---|---|
-| Product identity | Testing agent, not coding agent | Complementary to incumbent coding agents instead of competing; verification is the post-AI bottleneck; scope shippable by a small team |
-| Coding-agent relationship | Deep integration | Handoff packets + MCP server + fix verification. Possum is the verification layer of the agentic stack — and the referee of other agents' fixes |
-| v1 surface | Web UIs (full pivot; CLI dropped from v1) | Market size; personas are literal customers in a browser; the vibe-coder wave needs exactly this; one deep driver beats two shallow ones |
-| Run mode | Local-first (`possum swarm` in the terminal) | Fastest build, best demo, terminal-native identity. CI wrapper is fast-follow |
-| Personas | All four: beginner, impatient, hostile, returning | The cast is the product. Returning user flagged experimental (most complex), cut first under pressure |
-| Sandbox | Lightweight namespaces (bubblewrap) | Zero install dependency (single binary, no Docker wall), instant startup. Cost: Linux-only v1 (WSL2 + CI ok), weaker isolation — stated loudly |
-| Implementation language | Go (assumption, not yet locked) | Single static binary, natural fit for namespace orchestration and CLI distribution |
-| Models | BYO API key, Anthropic first. Cheap vision model for personas; stronger model for the judge | Personas are wide and cheap; judgment is narrow and smart |
+| Product identity | Open-source local customer simulator | Avoids the crowded AI QA platform frame and makes the differentiator concrete: customers, claims, and reproducible failures. |
+| License | Apache-2.0 | Maximizes adoption, permissive use, patent clarity, and enterprise comfort. |
+| Core surface | Open source | The trust story depends on developers being able to inspect persona prompts, sandboxing, judging, repros, and report formats. |
+| Coding-agent relationship | Tight post-task integration | Claude Code, Codex, and similar agents should be able to call Possum automatically after user-facing work, consume findings, fix issues, and replay repros. |
+| Paid surface | Optional hosted acceleration | Hosted parallel runs, team history, model proxying, scheduled audits, managed browsers, and private app connectors can be commercial without compromising local use. |
+| v1 command | `possum audit` | Clear one-shot local customer simulation against localhost. Avoids internal implementation jargon in the user-facing command. |
+| Customer model | Beginner, impatient, hostile, returning | The cast is the product. Returning user is experimental in v1 because state seeding is the most complex part. |
+| Claim source | README, homepage, product copy, and discovered UI | Possum tests claim-vs-reality: what the app says users can do versus what customers can actually complete. |
+| Output | Plain files under `.possum/runs/<id>` | Auditable, git-friendly, agent-friendly evidence instead of a proprietary database. |
+| Sandbox | Lightweight local browser/app isolation | Local-first adoption and fast startup. v1 must state isolation limits plainly and recommend trusted projects only. |
+| Models | BYO keys for v1 | Keeps Possum usable without an account while allowing paid model proxying later. |
 
-## 3. Core Flow
+## 3. Product Surface
 
-```
-possum swarm
-  1. LAUNCH     figure out how to run the app (dev-server command from
-                package.json / README / framework detection, or user-
-                supplied), start it inside the sandbox, wait until reachable
-  2. DISCOVER   crawl the running app: routes, forms, flows; read README /
-                landing copy for what the app CLAIMS to do → surface map
-  3. CAST       spawn personas, each with its own headless-browser context
-                (own cookies/storage) against the sandboxed app
-  4. EXPLORE    personas pursue missions via Playwright, reasoning over
-                screenshots + DOM; every action recorded
-  5. JUDGE      candidate findings re-run for reproducibility (must
-                reproduce twice), deduped, severity-ranked (stronger model)
-  6. REPORT     .possum/runs/<id>/: report.md, screenshots, repro as a
-                runnable Playwright script
-  7. HANDOFF    possum handoff <finding> → agent-ready packet on stdout
-                (pipe into claude/cursor); MCP server for agent-driven runs
-  8. VERIFY     possum verify <finding> replays the repro after a fix —
-                possum referees whether the coding agent actually fixed it
-```
+### `possum audit`
 
-## 4. The Cast
+Runs a local one-shot customer simulation against a target app, usually
+`localhost`.
 
-Each persona = system prompt + behavior policy + a "what counts as a finding" rubric.
-Personas explore *behavior space* the way real customers do (vs. fuzzing's blind input
-space). Each runs a fast vision-capable model with bounded exploration time.
+Flow:
 
-### The beginner
-Lands on the homepage knowing nothing. Tries to accomplish what the app *claims* to offer
-(from README / landing copy). Never uses developer knowledge, never reads code, never
-infers around a broken step.
-**Finds:** broken onboarding, dead ends, silently failing forms, "obvious to the author"
-navigation, docs/claims drift.
+1. **Launch:** start the app from a configured command or connect to an existing
+   localhost URL.
+2. **Discover:** crawl reachable routes, forms, calls to action, and app copy.
+3. **Extract claims:** read README, homepage, and product text to infer what the
+   app says users can do.
+4. **Simulate customers:** run personas in isolated browser contexts with their
+   own cookies and storage.
+5. **Record traces:** log every action, screenshot, DOM snapshot, and candidate
+   finding.
+6. **Judge findings:** replay candidate failures, require reproducibility, dedupe
+   related issues, rank severity, and suppress known false positives.
+7. **Report:** write local evidence to `.possum/runs/<id>`.
 
-### The impatient user
-Double-clicks submit. Hits back mid-flow. Refreshes during saves. Abandons forms and
-retries. Opens the same page in two tabs.
-**Finds:** duplicate submissions, corrupted state, lost form data, race conditions,
-non-idempotent operations.
+### `possum report`
 
-### The hostile user
-Injection strings in every form. URL/parameter tampering. Oversized uploads. Script tags
-in profile names. Unicode tricks.
-**Finds:** validation gaps, XSS-shaped bugs, unhandled errors, information leaks in error
-pages. (Positioned as robustness findings, not a security audit.)
+Renders findings from `.possum/runs/<id>` into Markdown or another local output
+format without rerunning the audit.
 
-### The returning user *(experimental in v1)*
-Has stale state: old localStorage, expired session tokens, an existing account mid-flow,
-artifacts from a previous app version.
-**Finds:** session-handling bugs, migration breaks, the "works in incognito" failure class.
-Most complex to build (requires a state-seeding phase before exploration); ships flagged
-experimental and is the first cut under schedule pressure.
+### `possum replay <finding>`
 
-## 5. Components
+Reruns the generated Playwright repro for a finding. This is the fix-verification
+loop: a coding agent claims a fix, then Possum checks whether the customer
+failure still reproduces.
 
-### `possum` CLI
-Single static binary. Commands for v1:
-`possum swarm` (full run) · `possum handoff <finding>` · `possum verify <finding>` ·
-`possum report [run]` (re-render findings) · `possum mcp` (serve MCP).
+## 4. Coding Agent Integration
 
-### Launcher
-Detects how to run the app: framework detection for common stacks (Next.js, Vite, Rails,
-Django, Express), `package.json` scripts, README instructions. If detection fails, it asks
-the user for the run command — **it never guesses forever**. Handles throwaway DB/seed
-setup where the framework makes that discoverable; otherwise documents what it ran against.
+Possum should be a verification layer that coding agents can invoke when they
+finish work. The manual CLI remains the baseline, but the product should be
+designed so Claude Code, Codex, Cursor, and similar tools can decide to run
+persona-based testing without a human explicitly typing `possum audit`.
 
-### Surface mapper
-Crawls the sandboxed app (routes, forms, interactive elements) and reads README/landing
-copy to extract *claims* (what the app says users can do). Output: a human-reviewable YAML
-surface map in `.possum/surface.yaml`; users can correct/scope it (e.g., exclude routes).
+### Automatic Post-Task Trigger
 
-### Persona engine
-One orchestrator, four persona definitions. Tools exposed to personas: `navigate`, `click`,
-`fill`, `screenshot`, `read_dom`, `note_finding`. Every action is logged to a structured
-trace (the raw material for repro scripts).
+A coding agent should consider running Possum after it completes a task when the
+change affects:
 
-### Sandbox runner
-bubblewrap/user namespaces wrapping the *app under test*: project copy, tmpfs home,
-read-only system dirs, network restricted to localhost. The headless browser talks only to
-the sandboxed app. v1 is Linux-only (incl. WSL2 and CI runners); macOS is fast-follow.
-v1 docs state plainly: weaker isolation than VMs — run on projects you trust.
+- onboarding, signup, checkout, invite, settings, or other customer workflows
+- forms, validation, permissions, state, sessions, or navigation
+- homepage, README, product copy, or claims about what users can do
+- flows that are hard to cover with unit tests alone
+- AI-generated prototypes where first-run usability is uncertain
 
-### Judge
-The signal-to-noise firewall, and the component with engineering priority over persona
-cleverness. Pipeline: candidate finding → replay it from the trace → must reproduce twice
-→ dedupe against other findings (same root symptom) → severity rank → only then report.
-Flaky findings die here and are never shown. Target: 3 real findings beat 30 maybes.
+It should usually skip Possum for:
 
-### Finding store
-`.possum/` in the repo — plain files, git-committable, no database:
+- internal refactors with no behavior change
+- dependency or formatting-only changes
+- backend-only changes with no reachable customer path
+- tasks where faster deterministic tests already prove the relevant behavior
 
-```
+### Agent Loop
+
+The intended loop is:
+
+1. Agent implements the requested change.
+2. Agent runs normal project verification first.
+3. Agent decides whether persona-based testing adds signal.
+4. Agent runs `possum audit` against the local app when useful.
+5. Agent reads `.possum/runs/<id>/report.md` and finding files.
+6. Agent fixes relevant findings.
+7. Agent runs `possum replay <finding>` to verify the original customer failure.
+8. Agent reports both normal verification and Possum evidence to the user.
+
+### MCP Surface
+
+The v1 design should include an MCP server so coding agents can call Possum
+directly:
+
+- `run_audit`: run a local audit against a configured target or localhost URL
+- `list_findings`: list findings for a run
+- `get_finding`: return a self-contained finding packet
+- `replay_finding`: rerun a finding repro
+- `get_report`: return the run report
+
+The MCP surface should return paths and structured data, not opaque hosted
+links. The agent should be able to inspect the same files a human can inspect.
+
+### Handoff Packets
+
+Every finding should be convertible into an agent-ready packet containing:
+
+- finding summary
+- expected and actual behavior
+- persona and mission
+- relevant screenshots and trace paths
+- generated Playwright repro
+- suggested verification command
+- app claims or product copy that motivated the mission
+
+The packet is not a fix recommendation engine. Its job is to give the coding
+agent enough auditable context to repair the issue and verify the repair.
+
+## 5. Open-Source Core
+
+The open-source repository should include the real execution path, not a thin
+client around a proprietary service:
+
+- local browser execution and Playwright driver
+- persona prompts and behavior policies
+- sandbox rules and default restrictions
+- claim extraction and surface map format
+- finding judge and reproducibility rules
+- repro generation
+- finding schema
+- report format
+- fixture apps and benchmark corpus
+- public extension points for persona packs and fixtures
+
+This is the defensible trust claim: a developer can inspect why Possum decided a
+customer failed, rerun the evidence, and modify the personas or fixtures without
+asking a hosted service for permission.
+
+## 6. Personas
+
+Each persona is a system prompt, behavior policy, and finding rubric. Personas
+explore behavior space the way customers do instead of fuzzing blind input space.
+
+### Beginner
+
+Lands on the app knowing nothing. Tries to accomplish what the README, homepage,
+or product copy says the app offers. Never uses developer knowledge, never reads
+source code, and never infers around a broken step.
+
+**Finds:** broken onboarding, dead ends, silently failing forms, confusing
+navigation, missing first-run state, and docs/claims drift.
+
+### Impatient
+
+Double-clicks submit, hits back mid-flow, refreshes during saves, abandons and
+retries forms, and opens the same page in multiple tabs.
+
+**Finds:** duplicate submissions, corrupted state, lost form data, race
+conditions, non-idempotent operations, and fragile loading states.
+
+### Hostile
+
+Uses injection-shaped strings, oversized inputs, URL tampering, unexpected
+Unicode, and awkward boundary values.
+
+**Finds:** validation gaps, unhandled errors, XSS-shaped output handling,
+information leaks in error pages, and unsafe form behavior.
+
+### Returning
+
+Starts with stale state: old localStorage, expired sessions, an existing account
+mid-flow, or artifacts from a previous app version.
+
+**Finds:** session-handling bugs, migration breaks, stale-cache failures, and
+"works in incognito" failure classes.
+
+**v1 status:** experimental. Ship if feasible, but cut before weakening the first
+three personas.
+
+## 7. Evidence Format
+
+Possum writes plain files:
+
+```text
 .possum/
-  surface.yaml                   # reviewable app map
-  runs/<id>/
-    report.md                    # human summary of the run
-    findings/<finding-id>/
-      report.md                  # what happened, expected vs actual, severity
-      repro.spec.ts              # runnable Playwright script
-      screenshots/               # evidence
-      trace.json                 # full action log
+  surface.yaml
+  runs/
+    <run-id>/
+      report.md
+      findings.json
+      personas/
+        <persona-id>/
+          trace.json
+          screenshots/
+      findings/
+        <finding-id>/
+          report.md
+          repro.spec.ts
+          trace.json
+          screenshots/
 ```
 
-### Integration layer
-- **`possum handoff <finding>`** — emits a self-contained packet (report + repro + relevant
-  context) as structured markdown on stdout, designed to be piped into a coding agent.
-- **MCP server** (`possum mcp`) — exposes `run_swarm`, `list_findings`, `get_finding`,
-  `verify_fix`, so coding agents can invoke possum themselves.
-- **`possum verify <finding>`** — replays the repro against the (re-launched) app and
-  reports fixed/not-fixed. This is the loop-closer: the coding agent claims a fix; possum
-  referees it.
+Finding records must include:
 
-## 6. Error Handling
+- stable finding ID
+- persona
+- claim or user mission being attempted
+- expected behavior
+- actual behavior
+- severity and confidence
+- reproducibility status
+- repro command
+- screenshot and trace references
+- dedupe fingerprint
 
-- **App won't launch:** show what was tried, ask for the run command. Never burn tokens
-  retry-guessing.
-- **Persona gets stuck** (e.g., auth wall with no test account): persona notes the blocker
-  as an *access finding* ("couldn't get past login — provide seed credentials in
-  possum.toml") and moves on; the run completes with partial coverage clearly stated.
-- **Flaky behavior:** judge's reproduce-twice rule. Irreproducible candidates are logged in
-  trace but never reported.
-- **Budget:** per-persona exploration is time/step-bounded; a cost estimate is shown before
-  the run starts (the "possum quotes before it works" principle).
-- **Honest stopping (the possum move):** if a run produces low-confidence noise or the app
-  is too broken to explore, possum says exactly that — "the beginner couldn't get past the
-  homepage; nothing else is reachable" — rather than padding the report.
+Reports should be written for two readers: a human developer scanning the failure
+and a coding agent receiving a self-contained repair packet.
 
-## 7. Testing Strategy (for possum itself)
+## 8. Extension Points
 
-- **Fixture apps:** a set of small intentionally-buggy web apps (one per persona specialty:
-  a docs-drifted onboarding, a double-submit checkout, an unvalidated form, a
-  session-migration break) used as end-to-end regression suites — each fixture has known
-  findings possum must catch, and known non-bugs it must not report (noise regression).
-- **Judge unit tests:** dedupe and reproduce-twice logic tested against recorded traces.
-- **Sandbox tests:** assert escape-prevention basics (no writes outside sandbox, no
-  non-localhost network).
-- **Determinism aids:** record/replay of model calls for cheap CI runs of orchestration logic.
+Open extension surfaces are part of the product, not afterthoughts:
 
-## 8. Competitive Positioning
+- **Persona packs:** additional customer types with prompts, policies, and
+  finding rubrics.
+- **Finding schema:** documented JSON schema for custom reporters and agent
+  integrations.
+- **Fixture apps:** intentionally broken apps that demonstrate and regression
+  test known failure classes.
+- **Benchmark corpus:** the public "Possum customer audit corpus" used to track
+  releases, false positives, and regressions.
 
-The agentic-QA category (TestSprite, Momentic, QA Wolf, Octomind, Bug0) sells **test
-coverage dashboards to QA processes**. Possum is **a customer simulator in the dev loop**:
+## 9. Fixture And Proof Plan
 
-| Dimension | Incumbents | Possum |
+v1 should ship fixture apps for:
+
+- broken onboarding or docs-drifted first run
+- double-submit checkout
+- unsafe or unvalidated form
+- stale-session or stale-storage failure
+
+Each release must run the fixture suite and prove:
+
+- known fixture findings are caught
+- known false positives are suppressed
+- generated repros still execute
+- report schema remains compatible
+
+Public examples should show Possum catching failures in real AI-generated apps.
+The benchmark should be published as the Possum customer audit corpus.
+
+## 10. Competitive Positioning
+
+Competitors such as TestSprite CLI, Momentic, QA Wolf, Octomind, Bug0/Passmark,
+Browser Use, Stagehand, Playwright MCP, and Skyvern crowd the "AI testing" and
+"browser automation" space. Possum should not fight them on "test coverage,"
+"self-healing tests," or "QA platform" language.
+
+| Dimension | Crowded AI QA framing | Possum framing |
 |---|---|---|
-| Home | SaaS dashboard | Terminal, local-first |
-| Model | Test generation & coverage | A cast of characterized customers |
-| Output | Tickets in Jira/Linear | Screenshots + replayable repro scripts in your repo |
-| Buyer | QA org | The developer (often with no QA org) |
-| Coding-agent loop | Bolt-on integrations | First-class: handoff packets, MCP, fix refereeing |
+| Primary question | Did we generate enough tests? | Could a customer use the app? |
+| Home | Cloud-first dashboard | Local terminal and plain files |
+| Model | Regression suite generation | Persona-driven product failure discovery |
+| Source of truth | Test management workflow | README/homepage claims versus reality |
+| Evidence | Hosted ticket, video, or dashboard | Screenshots, traces, and Playwright repros in repo |
+| Developer loop | Separate QA workflow | Agent-ready failure packets and local replay |
 
-Language discipline is existential, not cosmetic: possum never says "test coverage" — it
-says *"possum couldn't check out either."* Persona-based exploration is validated by
-research (WebProber, arXiv 2509.05197) and by Sierra's persona simulations for
-conversational agents; nobody has productized it for web apps in the dev loop.
+Language discipline is strategic. Possum should say:
 
-## 9. Risks
+- "The beginner customer could not finish onboarding."
+- "The impatient customer submitted the order twice."
+- "The app claims teams can invite members, but no customer found a working path."
 
-1. **Crowded category** — differentiation rests on positioning (dev-loop customer
-   simulator) and the agent-referee loop. Drifting into "coverage platform" language or
-   features kills the identity.
-2. **"How do I run this app"** is the hardest environment problem (dev server, DB, seed
-   data). Mitigation: common-stack detection + ask-the-user fallback; never guess forever.
-3. **Browser-agent flakiness** — mitigated by the judge as a hard gate, not best-effort.
-4. **Cost per run** — vision tokens add up. Mitigations: bounded exploration, cheap persona
-   models, pre-run cost estimate.
-5. **Linux-only v1** — accepted (WSL2 + CI covers most of the audience); macOS sandbox is
-   the first post-v1 platform task.
-6. **Returning-user persona complexity** — flagged experimental; first cut under pressure.
+Possum should avoid:
 
-## 10. Out of Scope for v1 (explicit)
+- "Increase test coverage."
+- "Generate self-healing tests."
+- "Autonomous QA platform."
+- "End-to-end test management."
 
-- CLI / HTTP-API testing surfaces (dropped in the pivot; may return as future drivers)
-- CI wrapper / GitHub Action (fast-follow after local v1)
-- macOS/Windows-native sandboxing (fast-follow)
-- Native/desktop/mobile UI testing
-- Multi-user concurrent persona interactions (two personas colliding in one app)
-- Any "test management" features (suites, dashboards, history analytics)
+## 11. Commercial Boundary
 
-## 11. Open Questions for the Implementation Plan
+The commercial product can make Possum faster, easier to share, or easier to run
+at team scale, but should not be required for the core local audit.
 
-- Lock the implementation language (Go assumed; confirm vs Rust/TypeScript — note the
-  Playwright dependency may argue for a TS component or driving Playwright via CDP from Go).
-- Playwright integration shape: embed `playwright` via a Node sidecar process, or speak CDP
-  directly from the binary?
-- Config file (`possum.toml`?) schema: run command, seed credentials, route scoping, budgets.
-- Finding-ID scheme and report.md format spec (also the handoff packet format).
-- Pre-run cost estimation model (tokens per persona-minute heuristics).
-- Fixture-app set: which four bugs ship as the regression suite first?
+Good paid surfaces:
+
+- hosted parallel audits
+- team run history
+- scheduled audits
+- managed browsers
+- model proxying and cost controls
+- private app connectors
+- organization policy controls
+
+Bad paid surfaces:
+
+- hiding persona prompts
+- hiding the finding judge
+- requiring an account for local audits
+- locking report formats behind a service
+- making repro execution proprietary
+
+## 12. Risks
+
+1. **Crowded category:** the product loses its edge if it drifts into generic AI
+   testing language.
+2. **App launch complexity:** local apps vary wildly. Possum should show what it
+   tried, ask for a run command, and stop instead of guessing forever.
+3. **Browser-agent flakiness:** suppress low-confidence findings through replay,
+   dedupe, and false-positive fixtures.
+4. **Cost per run:** bounded exploration and BYO keys are required for v1.
+5. **Sandbox limits:** lightweight local isolation is useful but not a VM-grade
+   security boundary. Documentation must be explicit.
+6. **Returning-user complexity:** state seeding can slip without weakening the
+   rest of v1.
+
+## 13. Out Of Scope For v1
+
+- required hosted account
+- cloud-only audit execution
+- QA dashboards and test-management workflows
+- durable regression suite generation as the primary product
+- native desktop or mobile app testing
+- full security audit claims
+- multi-user collaborative simulations
+- CI product as the core launch surface
+
+## 14. Implementation Open Questions
+
+- Implementation language and Playwright integration shape.
+- `possum.toml` schema for target URL, run command, seed credentials, route
+  scoping, budgets, and model configuration.
+- Finding ID and dedupe fingerprint scheme.
+- Exact report Markdown and `findings.json` schemas.
+- Repro-generation contract for `possum replay <finding>`.
+- MCP tool contract for coding-agent initiated audits.
+- Agent trigger guidance for when persona-based testing is worth the cost.
+- Initial benchmark corpus layout and release gate commands.
