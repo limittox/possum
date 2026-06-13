@@ -2,7 +2,7 @@
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { join, resolve } from "node:path";
-import { runAuditStub } from "../audit/auditStub.js";
+import { runAudit } from "../audit/audit.js";
 
 export interface CliDependencies {
   cwd: string;
@@ -20,7 +20,7 @@ export function buildProgram(deps: CliDependencies): Command {
     .description("Run a local customer audit.")
     .requiredOption("--url <url>", "Local app URL to audit")
     .action(async (options: { url: string }) => {
-      const result = await runAuditStub({
+      const result = await runAudit({
         rootDir: deps.cwd,
         targetUrl: options.url,
         now: deps.now
@@ -28,6 +28,9 @@ export function buildProgram(deps: CliDependencies): Command {
 
       deps.stdout(`Possum audit created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      if (result.surfaceJsonPath) {
+        deps.stdout(`Surface: ${result.surfaceJsonPath}`);
+      }
     });
 
   program

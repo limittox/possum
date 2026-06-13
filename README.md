@@ -81,9 +81,10 @@ npm run build
 ```
 
 The first runnable slice is intentionally contract-first. `possum audit --url
-http://localhost:3000` creates a local `.possum/runs/<id>` report without browser
-automation. Browser execution, persona prompts, judging, and Playwright repro
-generation plug into the same contracts in later slices.
+http://localhost:3000` probes the target URL, writes a local
+`.possum/runs/<id>` report, and stores basic page surface data in `surface.json`.
+Browser execution, persona prompts, judging, and Playwright repro generation plug
+into the same contracts in later slices.
 
 ## License
 

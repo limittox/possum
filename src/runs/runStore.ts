@@ -1,6 +1,7 @@
 import { mkdir, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { RunReport, RunReportSchema } from "../contracts/findings.js";
+import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
 import { renderRunMarkdown } from "../report/renderMarkdown.js";
 
 export interface RunStore {
@@ -34,4 +35,15 @@ export async function writeRunReport(store: RunStore, report: RunReport): Promis
   await writeFile(reportMarkdownPath, renderRunMarkdown(parsed), "utf8");
 
   return { runDir, findingsJsonPath, reportMarkdownPath };
+}
+
+export async function writeSurface(store: RunStore, runId: string, surface: PageSurface): Promise<string> {
+  const parsed = PageSurfaceSchema.parse(surface);
+  const runDir = join(store.runsDir, runId);
+  const surfaceJsonPath = join(runDir, "surface.json");
+
+  await mkdir(runDir, { recursive: true });
+  await writeFile(surfaceJsonPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
+
+  return surfaceJsonPath;
 }
