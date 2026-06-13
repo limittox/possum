@@ -52,6 +52,9 @@ terminal; Possum meets them there.
 
 ## 3. Product Surface
 
+Possum is a CLI tool with a first-class MCP server. The CLI is the durable
+foundation; MCP is the coding-agent integration layer.
+
 ### `possum audit`
 
 Runs a local one-shot customer simulation against a target app, usually

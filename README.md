@@ -23,6 +23,9 @@ coding agent can fix.
 
 ## Coding Agent Integration
 
+Possum is a CLI tool with a first-class MCP server. The CLI is the durable
+foundation; MCP is the coding-agent integration layer.
+
 Possum is designed to be called by coding agents such as Claude Code and Codex
 after they finish a task. If the agent changes user-facing behavior and decides
 the work would benefit from persona-based testing, it should automatically run a
