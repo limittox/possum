@@ -71,6 +71,20 @@ Hosted parallel runs, team history, model proxying, scheduled audits, managed
 browsers, and private app connectors can exist as optional commercial surfaces.
 The local audit path should remain usable without a Possum account.
 
+## Development
+
+```bash
+npm install
+npm run typecheck
+npm test
+npm run build
+```
+
+The first runnable slice is intentionally contract-first. `possum audit --url
+http://localhost:3000` creates a local `.possum/runs/<id>` report without browser
+automation. Browser execution, persona prompts, judging, and Playwright repro
+generation plug into the same contracts in later slices.
+
 ## License
 
 Possum is licensed under Apache-2.0.
