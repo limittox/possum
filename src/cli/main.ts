@@ -3,6 +3,7 @@ import { Command } from "commander";
 import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runAudit } from "../audit/audit.js";
+import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
 
@@ -18,6 +19,11 @@ export function buildProgram(deps: CliDependencies): Command {
   const program = new Command();
 
   program.name("possum").description("Local customer simulator for AI-built apps.");
+
+  program.command("doctor").description("Check local dependencies needed by Possum.").action(async () => {
+    const report = await checkPlaywrightSystemDependencies({ execFile: deps.execFile });
+    deps.stdout(renderDoctorReport(report));
+  });
 
   program
     .command("audit")

@@ -81,6 +81,28 @@ npm test
 npm run build
 ```
 
+Check local browser dependencies:
+
+```bash
+node dist/src/cli/main.js doctor
+```
+
+If Playwright reports a missing Chromium library such as `libasound.so.2`, install
+it directly:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y libasound2
+```
+
+On newer Ubuntu releases the package may be named `libasound2t64`. To let
+Playwright install Chromium's full dependency set while keeping your shell's
+Node.js version under `sudo`, use:
+
+```bash
+sudo env "PATH=$PATH" npx playwright install-deps chromium
+```
+
 The first runnable slice is intentionally contract-first. `possum audit --url
 http://localhost:3000` probes the target URL, writes a local
 `.possum/runs/<id>` report, and stores basic page surface data in `surface.json`.

@@ -60,4 +60,19 @@ describe("CLI", () => {
     expect(output.join("\n")).toContain("install deps");
     expect(exitCodes).toEqual([1]);
   });
+
+  it("prints doctor guidance for missing Playwright system dependencies", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-doctor-"));
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      execFile: async () => ({ stdout: "", stderr: "", exitCode: 0 })
+    });
+
+    await program.parseAsync(["node", "possum", "doctor"]);
+
+    expect(output.join("\n")).toContain("libasound.so.2");
+    expect(output.join("\n")).toContain('sudo env "PATH=$PATH" npx playwright install-deps chromium');
+  });
 });

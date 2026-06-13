@@ -3,6 +3,7 @@ export * from "./audit/auditStub.js";
 export * from "./contracts/config.js";
 export * from "./contracts/findings.js";
 export * from "./contracts/surface.js";
+export * from "./doctor/doctor.js";
 export * from "./mcp/server.js";
 export * from "./personas/beginner.js";
 export * from "./report/renderMarkdown.js";
