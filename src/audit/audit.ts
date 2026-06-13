@@ -1,8 +1,10 @@
 import { join } from "node:path";
 import { Finding } from "../contracts/findings.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
+import { evaluateImpatientPersona } from "../personas/impatient.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
+import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 
 export interface AuditInput {
@@ -25,10 +27,12 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   const store = createRunStore(input.rootDir);
   const findings: Finding[] = [];
   let surfaceJsonPath: string | undefined;
+  let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
 
   try {
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
     const traceRelativePath = "personas/beginner/trace.json";
+    const impatientTraceRelativePath = "personas/impatient/trace.json";
     const surface = await probeTargetSurface({
       targetUrl: input.targetUrl,
       screenshot: {
@@ -42,6 +46,15 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     });
     surfaceJsonPath = await writeSurface(store, runId, surface);
     findings.push(...evaluateBeginnerPersona({ runId, surface }));
+
+    impatientDoubleSubmit = await probeImpatientDoubleSubmit({
+      targetUrl: input.targetUrl,
+      trace: {
+        absolutePath: join(store.runsDir, runId, impatientTraceRelativePath),
+        relativePath: impatientTraceRelativePath
+      }
+    });
+    findings.push(...evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit }));
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
   }
@@ -57,11 +70,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
 
   await Promise.all(
     findings.map((finding) =>
-      writeFindingArtifacts(store, runId, finding, {
-        trace: createFindingTrace(input.targetUrl, finding),
-        reproSpec: createFindingRepro(input.targetUrl, finding)
-      })
-    )
+        writeFindingArtifacts(store, runId, finding, {
+          trace: createFindingTrace(input.targetUrl, finding, { impatientDoubleSubmit }),
+          reproSpec: createFindingRepro(input.targetUrl, finding)
+        })
+      )
   );
 
   return {
@@ -96,7 +109,19 @@ function createAccessFinding(runId: string, targetUrl: string, error: unknown): 
   };
 }
 
-function createFindingTrace(targetUrl: string, finding: Finding): unknown {
+function createFindingTrace(
+  targetUrl: string,
+  finding: Finding,
+  context: { impatientDoubleSubmit?: DoubleSubmitProbeResult } = {}
+): unknown {
+  if (finding.id === "finding_impatient_double_submit_001" && context.impatientDoubleSubmit) {
+    return {
+      findingId: finding.id,
+      persona: finding.persona,
+      actions: context.impatientDoubleSubmit.steps
+    };
+  }
+
   return {
     findingId: finding.id,
     persona: finding.persona,

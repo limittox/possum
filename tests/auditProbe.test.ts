@@ -33,6 +33,32 @@ async function serveHtml(html: string): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function serveDoubleSubmitForm(): Promise<{ targetUrl: string; submissions: () => number }> {
+  let submissions = 0;
+  const server = createServer((request, response) => {
+    if (request.method === "POST" && request.url === "/signup") {
+      submissions += 1;
+      response.writeHead(200, { "content-type": "text/plain" });
+      response.end("created");
+      return;
+    }
+
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(`<!doctype html>
+      <title>Signup</title>
+      <h1>Create account</h1>
+      <form onsubmit="event.preventDefault(); fetch('/signup', { method: 'POST' });">
+        <input name="email" />
+        <button type="submit">Create account</button>
+      </form>`);
+  });
+  servers.push(server);
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  return { targetUrl: `http://127.0.0.1:${address.port}`, submissions: () => submissions };
+}
+
 describe("runAudit", () => {
   it("writes surface.json for a reachable app", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-real-audit-"));
@@ -89,6 +115,31 @@ describe("runAudit", () => {
     await expect(
       readFile(join(result.runDir, "findings", "finding_beginner_dead_end_001", "repro.spec.ts"), "utf8")
     ).resolves.toContain(targetUrl);
+  });
+
+  it("reports an impatient finding when a form submits twice from rapid clicks", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-impatient-audit-"));
+    const { targetUrl, submissions } = await serveDoubleSubmitForm();
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    expect(submissions()).toBe(2);
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_impatient_double_submit_001");
+    expect(findingsJson).toContain("submitted 2 times");
+
+    const findingDir = join(result.runDir, "findings", "finding_impatient_double_submit_001");
+    await expect(readFile(join(findingDir, "report.md"), "utf8")).resolves.toContain(
+      "# finding_impatient_double_submit_001"
+    );
+    await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain(
+      '"action": "double_submit"'
+    );
   });
 
   it("reports an access finding when the app is unreachable", async () => {
