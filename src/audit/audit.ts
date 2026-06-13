@@ -1,4 +1,5 @@
 import { Finding } from "../contracts/findings.js";
+import { evaluateBeginnerPersona } from "../personas/beginner.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
@@ -27,6 +28,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   try {
     const surface = await probeTargetSurface({ targetUrl: input.targetUrl });
     surfaceJsonPath = await writeSurface(store, runId, surface);
+    findings.push(...evaluateBeginnerPersona({ runId, surface }));
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
   }

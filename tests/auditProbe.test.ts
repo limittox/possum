@@ -48,6 +48,23 @@ describe("runAudit", () => {
     expect(surfaceJson).toContain("\"title\": \"Reachable App\"");
   });
 
+  it("reports a beginner dead-end finding for a reachable page with no actions", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-dead-end-audit-"));
+    const targetUrl = await serveHtml("<title>Dead End</title><h1>Welcome</h1>");
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_beginner_dead_end_001");
+    await expect(
+      readFile(join(result.runDir, "findings", "finding_beginner_dead_end_001", "repro.spec.ts"), "utf8")
+    ).resolves.toContain(targetUrl);
+  });
+
   it("reports an access finding when the app is unreachable", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-unreachable-audit-"));
 

@@ -36,7 +36,7 @@ async function serveHtml(html: string): Promise<string> {
 describe("runPossumMcpTool", () => {
   it("runs an audit and returns structured run data", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-run-"));
-    const targetUrl = await serveHtml("<title>MCP Fixture</title><h1>Hello</h1>");
+    const targetUrl = await serveHtml('<title>MCP Fixture</title><h1>Hello</h1><a href="/start">Start</a>');
 
     const result = await runPossumMcpTool(
       "run_audit",
@@ -57,7 +57,7 @@ describe("runPossumMcpTool", () => {
 
   it("lists findings and returns a report for a run", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-report-"));
-    const targetUrl = await serveHtml("<title>MCP Report</title>");
+    const targetUrl = await serveHtml('<title>MCP Report</title><button>Start</button>');
 
     await runPossumMcpTool("run_audit", { rootDir, targetUrl }, { now: new Date("2026-06-13T02:00:00.000Z") });
 
