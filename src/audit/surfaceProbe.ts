@@ -1,14 +1,19 @@
-import { mkdir } from "node:fs/promises";
+import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import { chromium } from "playwright";
+import { chromium, type Page } from "playwright";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
+
+const BEGINNER_MISSION = "Find an obvious next step from first customer-facing screen.";
+
+interface BrowserArtifact {
+  absolutePath: string;
+  relativePath: string;
+}
 
 export interface ProbeTargetSurfaceInput {
   targetUrl: string;
-  screenshot?: {
-    absolutePath: string;
-    relativePath: string;
-  };
+  screenshot?: BrowserArtifact;
+  trace?: BrowserArtifact;
 }
 
 export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promise<PageSurface> {
@@ -58,14 +63,104 @@ export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promis
       };
     });
 
-    return PageSurfaceSchema.parse({
+    const parsedSurface = PageSurfaceSchema.parse({
       targetUrl: input.targetUrl,
       finalUrl: page.url(),
       status: response.status(),
       ...surface,
       screenshot: input.screenshot?.relativePath
     });
+
+    if (input.trace) {
+      await writeBeginnerTrace({
+        page,
+        targetUrl: input.targetUrl,
+        surface: parsedSurface,
+        trace: input.trace
+      });
+    }
+
+    return parsedSurface;
   } finally {
     await browser.close();
   }
+}
+
+async function writeBeginnerTrace(input: {
+  page: Page;
+  targetUrl: string;
+  surface: PageSurface;
+  trace: BrowserArtifact;
+}): Promise<void> {
+  const steps: Array<Record<string, unknown>> = [
+    {
+      action: "navigate",
+      url: input.targetUrl,
+      finalUrl: input.surface.finalUrl,
+      status: input.surface.status,
+      title: input.surface.title
+    },
+    {
+      action: "observe_actions",
+      links: input.surface.links.length,
+      buttons: input.surface.buttons.length,
+      forms: input.surface.forms.length
+    }
+  ];
+
+  const firstLink = input.surface.links.find((link) => link.href.length > 0);
+  if (firstLink) {
+    steps.push({
+      action: "click_link",
+      text: firstLink.text,
+      href: firstLink.href
+    });
+
+    try {
+      await input.page.evaluate((href) => {
+        const link = Array.from(document.querySelectorAll<HTMLAnchorElement>("a[href]")).find(
+          (element) => element.getAttribute("href") === href
+        );
+
+        if (!link) {
+          throw new Error(`Could not find link with href ${href}`);
+        }
+
+        link.dataset.possumTraceLink = "true";
+      }, firstLink.href);
+
+      const expectedUrl = new URL(firstLink.href, input.surface.finalUrl).toString();
+      await Promise.all([
+        input.page.waitForURL(expectedUrl, { timeout: 2000 }).catch(() => undefined),
+        input.page.locator('[data-possum-trace-link="true"]').click({ timeout: 2000 })
+      ]);
+
+      steps.push({
+        action: "after_click",
+        finalUrl: input.page.url(),
+        title: await input.page.title()
+      });
+    } catch (error) {
+      steps.push({
+        action: "click_link_error",
+        message: error instanceof Error ? error.message : String(error)
+      });
+    }
+  }
+
+  await mkdir(dirname(input.trace.absolutePath), { recursive: true });
+  await writeFile(
+    input.trace.absolutePath,
+    `${JSON.stringify(
+      {
+        persona: "beginner",
+        mission: BEGINNER_MISSION,
+        targetUrl: input.targetUrl,
+        steps
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
 }

@@ -52,6 +52,27 @@ describe("runAudit", () => {
     expect([...screenshot.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
   });
 
+  it("writes a beginner browser trace for a reachable app", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-beginner-trace-"));
+    const targetUrl = await serveHtml('<title>Trace App</title><h1>Welcome</h1><a href="/start">Start</a>');
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const traceJson = await readFile(join(result.runDir, "personas", "beginner", "trace.json"), "utf8");
+    expect(traceJson).toContain('"persona": "beginner"');
+    expect(traceJson).toContain('"action": "navigate"');
+    expect(traceJson).toContain('"action": "click_link"');
+    expect(traceJson).toContain('"text": "Start"');
+    expect(traceJson).toContain('"href": "/start"');
+
+    const trace = JSON.parse(traceJson) as { steps: Array<{ action: string; finalUrl?: string }> };
+    expect(trace.steps).toContainEqual(expect.objectContaining({ action: "after_click", finalUrl: `${targetUrl}/start` }));
+  });
+
   it("reports a beginner dead-end finding for a reachable page with no actions", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-dead-end-audit-"));
     const targetUrl = await serveHtml("<title>Dead End</title><h1>Welcome</h1>");

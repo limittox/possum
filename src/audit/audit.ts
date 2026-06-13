@@ -28,11 +28,16 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
 
   try {
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
+    const traceRelativePath = "personas/beginner/trace.json";
     const surface = await probeTargetSurface({
       targetUrl: input.targetUrl,
       screenshot: {
         absolutePath: join(store.runsDir, runId, screenshotRelativePath),
         relativePath: screenshotRelativePath
+      },
+      trace: {
+        absolutePath: join(store.runsDir, runId, traceRelativePath),
+        relativePath: traceRelativePath
       }
     });
     surfaceJsonPath = await writeSurface(store, runId, surface);
