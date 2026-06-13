@@ -1,9 +1,11 @@
 import { join } from "node:path";
 import { Finding } from "../contracts/findings.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
+import { evaluateHostilePersona } from "../personas/hostile.js";
 import { evaluateImpatientPersona } from "../personas/impatient.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
+import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 
@@ -28,11 +30,13 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   const findings: Finding[] = [];
   let surfaceJsonPath: string | undefined;
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
+  let hostileValidation: HostileProbeResult | undefined;
 
   try {
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
     const traceRelativePath = "personas/beginner/trace.json";
     const impatientTraceRelativePath = "personas/impatient/trace.json";
+    const hostileTraceRelativePath = "personas/hostile/trace.json";
     const surface = await probeTargetSurface({
       targetUrl: input.targetUrl,
       screenshot: {
@@ -55,6 +59,15 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
       }
     });
     findings.push(...evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit }));
+
+    hostileValidation = await probeHostileValidation({
+      targetUrl: input.targetUrl,
+      trace: {
+        absolutePath: join(store.runsDir, runId, hostileTraceRelativePath),
+        relativePath: hostileTraceRelativePath
+      }
+    });
+    findings.push(...evaluateHostilePersona({ runId, validation: hostileValidation }));
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
   }
@@ -71,7 +84,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   await Promise.all(
     findings.map((finding) =>
         writeFindingArtifacts(store, runId, finding, {
-          trace: createFindingTrace(input.targetUrl, finding, { impatientDoubleSubmit }),
+          trace: createFindingTrace(input.targetUrl, finding, { hostileValidation, impatientDoubleSubmit }),
           reproSpec: createFindingRepro(input.targetUrl, finding)
         })
       )
@@ -112,13 +125,21 @@ function createAccessFinding(runId: string, targetUrl: string, error: unknown): 
 function createFindingTrace(
   targetUrl: string,
   finding: Finding,
-  context: { impatientDoubleSubmit?: DoubleSubmitProbeResult } = {}
+  context: { hostileValidation?: HostileProbeResult; impatientDoubleSubmit?: DoubleSubmitProbeResult } = {}
 ): unknown {
   if (finding.id === "finding_impatient_double_submit_001" && context.impatientDoubleSubmit) {
     return {
       findingId: finding.id,
       persona: finding.persona,
       actions: context.impatientDoubleSubmit.steps
+    };
+  }
+
+  if (finding.id === "finding_hostile_server_error_001" && context.hostileValidation) {
+    return {
+      findingId: finding.id,
+      persona: finding.persona,
+      actions: context.hostileValidation.steps
     };
   }
 

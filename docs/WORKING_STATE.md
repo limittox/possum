@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 01:56 AEST
+Last updated: 2026-06-14 02:05 AEST
 
 ## Goal
 
@@ -17,7 +17,7 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 Latest pushed commit before this slice:
 
 ```text
-34b0aaf feat: record beginner browser trace
+4f58860 feat: detect impatient double submits
 ```
 
 Current pushed behavior:
@@ -27,6 +27,7 @@ Current pushed behavior:
 - Reachable pages get `personas/beginner/screenshots/first-page.png`.
 - Reachable audits write `personas/beginner/trace.json`.
 - Beginner persona catches a reachable app whose first screen has no links, buttons, or forms.
+- Impatient persona catches duplicate form submissions caused by rapid submit clicks.
 - Unreachable apps produce an access finding.
 - Findings write `report.md`, `trace.json`, and `repro.spec.ts`.
 - `possum replay <reproPath>` executes Playwright against generated repros.
@@ -35,32 +36,31 @@ Current pushed behavior:
 
 ## Active Slice
 
-Slice: impatient double-submit persona.
+Slice: hostile server-error persona.
 
 Intent:
 
-- Add an impatient browser-backed check for forms.
+- Add a hostile browser-backed check for obvious validation/error-page failures.
 - Navigate to the target in a fresh browser page.
-- Fill the first form with safe dummy values.
-- Rapidly double-click the first submit control.
-- Count native form submissions and mutation requests triggered by JavaScript submit handlers.
-- Report a finding when the rapid submit causes duplicate customer submissions.
+- Fill the first form with an injection-shaped payload.
+- Submit once and watch mutation responses.
+- Report a finding when unexpected input produces HTTP 500+.
 
 Files changed:
 
 ```text
 docs/WORKING_STATE.md
 src/audit/audit.ts
-src/audit/impatientProbe.ts
-src/personas/impatient.ts
+src/audit/hostileProbe.ts
+src/personas/hostile.ts
 tests/auditProbe.test.ts
 ```
 
 TDD checkpoint:
 
-- `npm test -- tests/auditProbe.test.ts` failed at 2026-06-14 01:52 AEST because the audit did not submit the form at all.
-- First implementation clicked the form but counted only the static form action; JS-handled forms posted elsewhere.
-- The probe now counts both native form requests and mutation requests caused by the rapid submit.
+- `npm test -- tests/auditProbe.test.ts` failed at 2026-06-14 02:00 AEST because only existing impatient submissions happened; no hostile payload submission or finding existed.
+- The hostile probe now submits `<script>alert("possum")</script>` into the first form.
+- The probe records mutation responses with HTTP status 500+ and the persona emits `finding_hostile_server_error_001`.
 
 Current verification:
 
@@ -71,31 +71,31 @@ npm run build
 git diff --check
 ```
 
-Passed at 2026-06-14 01:55 AEST. Full test suite result: 11 files, 29 tests.
+Passed at 2026-06-14 02:03 AEST. Full test suite result: 11 files, 30 tests.
 
 Smoke verification:
 
 ```bash
-node dist/src/cli/main.js audit --url http://127.0.0.1:4178
+node dist/src/cli/main.js audit --url http://127.0.0.1:4179
 ```
 
-With a local fixture whose submit handler runs `fetch('/signup', { method: 'POST' })`, created `run_20260613_155607`.
+With a local fixture whose submit handler posts to `/comment` and returns HTTP 500 for encoded `<script>` payloads, created `run_20260613_160417`.
 Verification output showed:
 
 ```text
-server submissions: 2
-finding: finding_impatient_double_submit_001
-trace double_submit.submissionCount: 2
-trace submittedUrls: http://127.0.0.1:4178/signup,http://127.0.0.1:4178/signup
+server submissions: 3
+findings: finding_impatient_double_submit_001,finding_hostile_server_error_001
+hostile status: 500
+hostile url: http://127.0.0.1:4179/comment
 ```
 
 Generated files included:
 
 ```text
-.possum/runs/run_20260613_155607/findings/finding_impatient_double_submit_001/report.md
-.possum/runs/run_20260613_155607/findings/finding_impatient_double_submit_001/trace.json
-.possum/runs/run_20260613_155607/findings/finding_impatient_double_submit_001/repro.spec.ts
-.possum/runs/run_20260613_155607/personas/impatient/trace.json
+.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/report.md
+.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/trace.json
+.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/repro.spec.ts
+.possum/runs/run_20260613_160417/personas/hostile/trace.json
 ```
 
 Runtime artifacts were removed after smoke verification.
@@ -121,8 +121,8 @@ git diff --check
 3. If this slice is not committed yet, commit and push:
 
 ```bash
-git add docs/WORKING_STATE.md src/audit/audit.ts src/audit/impatientProbe.ts src/personas/impatient.ts tests/auditProbe.test.ts
-git commit -m "feat: detect impatient double submits"
+git add docs/WORKING_STATE.md src/audit/audit.ts src/audit/hostileProbe.ts src/personas/hostile.ts tests/auditProbe.test.ts
+git commit -m "feat: detect hostile server errors"
 git push origin main
 ```
 
@@ -152,7 +152,6 @@ On newer Ubuntu, use `libasound2t64`.
 
 ## Remaining v1 Work After This Slice
 
-- Add hostile persona checks, starting with obvious client-side validation and error-page issues.
 - Add fixture apps for known findings.
 - Add judge/dedupe gate beyond current deterministic findings.
 - Add config run-command support and sandboxing.

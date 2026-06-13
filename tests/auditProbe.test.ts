@@ -59,6 +59,43 @@ async function serveDoubleSubmitForm(): Promise<{ targetUrl: string; submissions
   return { targetUrl: `http://127.0.0.1:${address.port}`, submissions: () => submissions };
 }
 
+async function serveHostileErrorForm(): Promise<{ targetUrl: string; submissions: () => number }> {
+  let submissions = 0;
+  const server = createServer((request, response) => {
+    if (request.method === "POST" && request.url === "/comment") {
+      submissions += 1;
+      const chunks: Buffer[] = [];
+      request.on("data", (chunk: Buffer) => chunks.push(chunk));
+      request.on("end", () => {
+        const body = Buffer.concat(chunks).toString("utf8");
+        if (body.includes("<script")) {
+          response.writeHead(500, { "content-type": "text/html" });
+          response.end("<h1>Internal Server Error</h1><pre>stack trace</pre>");
+          return;
+        }
+
+        response.writeHead(200, { "content-type": "text/plain" });
+        response.end("ok");
+      });
+      return;
+    }
+
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(`<!doctype html>
+      <title>Comment</title>
+      <h1>Leave comment</h1>
+      <form onsubmit="event.preventDefault(); fetch('/comment', { method: 'POST', body: new FormData(this) });">
+        <textarea name="comment"></textarea>
+        <button type="submit">Post comment</button>
+      </form>`);
+  });
+  servers.push(server);
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  return { targetUrl: `http://127.0.0.1:${address.port}`, submissions: () => submissions };
+}
+
 describe("runAudit", () => {
   it("writes surface.json for a reachable app", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-real-audit-"));
@@ -127,7 +164,7 @@ describe("runAudit", () => {
       now: new Date("2026-06-13T02:00:00.000Z")
     });
 
-    expect(submissions()).toBe(2);
+    expect(submissions()).toBeGreaterThanOrEqual(2);
 
     const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
     expect(findingsJson).toContain("finding_impatient_double_submit_001");
@@ -139,6 +176,31 @@ describe("runAudit", () => {
     );
     await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain(
       '"action": "double_submit"'
+    );
+  });
+
+  it("reports a hostile finding when unexpected input causes a server error", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-hostile-audit-"));
+    const { targetUrl, submissions } = await serveHostileErrorForm();
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    expect(submissions()).toBe(3);
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_hostile_server_error_001");
+    expect(findingsJson).toContain("HTTP 500");
+
+    const findingDir = join(result.runDir, "findings", "finding_hostile_server_error_001");
+    await expect(readFile(join(findingDir, "report.md"), "utf8")).resolves.toContain(
+      "# finding_hostile_server_error_001"
+    );
+    await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain(
+      '"action": "submit_hostile_payload"'
     );
   });
 
