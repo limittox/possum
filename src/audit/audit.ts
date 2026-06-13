@@ -1,5 +1,5 @@
 import { Finding } from "../contracts/findings.js";
-import { createRunStore, writeRunReport, writeSurface } from "../runs/runStore.js";
+import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 
@@ -40,6 +40,15 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     findings
   });
 
+  await Promise.all(
+    findings.map((finding) =>
+      writeFindingArtifacts(store, runId, finding, {
+        trace: createFindingTrace(input.targetUrl, finding),
+        reproSpec: createFindingRepro(input.targetUrl, finding)
+      })
+    )
+  );
+
   return {
     runId,
     runDir: written.runDir,
@@ -65,9 +74,34 @@ function createAccessFinding(runId: string, targetUrl: string, error: unknown): 
     reproducibility: { status: "reproduced", attempts: 1 },
     evidence: {
       screenshots: [],
-      trace: "personas/beginner/trace.json",
+      trace: "findings/finding_beginner_access_001/trace.json",
       repro: "findings/finding_beginner_access_001/repro.spec.ts"
     },
     dedupeFingerprint: `beginner:access:${targetUrl}`
   };
+}
+
+function createFindingTrace(targetUrl: string, finding: Finding): unknown {
+  return {
+    findingId: finding.id,
+    persona: finding.persona,
+    actions: [
+      {
+        type: "navigate",
+        targetUrl,
+        actual: finding.actual
+      }
+    ]
+  };
+}
+
+function createFindingRepro(targetUrl: string, finding: Finding): string {
+  return [
+    'import { test } from "@playwright/test";',
+    "",
+    `test("${finding.id}", async ({ page }) => {`,
+    `  await page.goto(${JSON.stringify(targetUrl)}, { waitUntil: "domcontentloaded", timeout: 5000 });`,
+    "});",
+    ""
+  ].join("\n");
 }

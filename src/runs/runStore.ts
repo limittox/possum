@@ -2,7 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { Finding, RunReport, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
-import { renderRunMarkdown } from "../report/renderMarkdown.js";
+import { renderFindingMarkdown, renderRunMarkdown } from "../report/renderMarkdown.js";
 
 export interface RunStore {
   rootDir: string;
@@ -14,6 +14,11 @@ export interface WrittenRun {
   runDir: string;
   findingsJsonPath: string;
   reportMarkdownPath: string;
+}
+
+export interface FindingArtifacts {
+  trace: unknown;
+  reproSpec: string;
 }
 
 export function createRunStore(rootDir: string): RunStore {
@@ -61,4 +66,20 @@ export async function readReportMarkdown(store: RunStore, runId: string): Promis
 export async function readFinding(store: RunStore, runId: string, findingId: string): Promise<Finding | undefined> {
   const report = await readRunReport(store, runId);
   return report.findings.find((finding) => finding.id === findingId);
+}
+
+export async function writeFindingArtifacts(
+  store: RunStore,
+  runId: string,
+  finding: Finding,
+  artifacts: FindingArtifacts
+): Promise<string> {
+  const findingDir = join(store.runsDir, runId, "findings", finding.id);
+
+  await mkdir(findingDir, { recursive: true });
+  await writeFile(join(findingDir, "report.md"), renderFindingMarkdown(finding), "utf8");
+  await writeFile(join(findingDir, "trace.json"), `${JSON.stringify(artifacts.trace, null, 2)}\n`, "utf8");
+  await writeFile(join(findingDir, "repro.spec.ts"), artifacts.reproSpec, "utf8");
+
+  return findingDir;
 }

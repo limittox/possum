@@ -61,4 +61,23 @@ describe("runAudit", () => {
     expect(findingsJson).toContain("finding_beginner_access_001");
     expect(findingsJson).toContain("could not reach the app");
   });
+
+  it("writes report, trace, and repro files for an access finding", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-access-artifacts-"));
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl: "http://127.0.0.1:9",
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingDir = join(result.runDir, "findings", "finding_beginner_access_001");
+    await expect(readFile(join(findingDir, "report.md"), "utf8")).resolves.toContain(
+      "# finding_beginner_access_001"
+    );
+    await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain("\"navigate\"");
+    await expect(readFile(join(findingDir, "repro.spec.ts"), "utf8")).resolves.toContain(
+      "http://127.0.0.1:9"
+    );
+  });
 });
