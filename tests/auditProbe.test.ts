@@ -46,6 +46,10 @@ describe("runAudit", () => {
 
     const surfaceJson = await readFile(join(result.runDir, "surface.json"), "utf8");
     expect(surfaceJson).toContain("\"title\": \"Reachable App\"");
+    expect(surfaceJson).toContain("\"screenshot\": \"personas/beginner/screenshots/first-page.png\"");
+
+    const screenshot = await readFile(join(result.runDir, "personas", "beginner", "screenshots", "first-page.png"));
+    expect([...screenshot.subarray(0, 4)]).toEqual([0x89, 0x50, 0x4e, 0x47]);
   });
 
   it("reports a beginner dead-end finding for a reachable page with no actions", async () => {
@@ -60,6 +64,7 @@ describe("runAudit", () => {
 
     const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
     expect(findingsJson).toContain("finding_beginner_dead_end_001");
+    expect(findingsJson).toContain("personas/beginner/screenshots/first-page.png");
     await expect(
       readFile(join(result.runDir, "findings", "finding_beginner_dead_end_001", "repro.spec.ts"), "utf8")
     ).resolves.toContain(targetUrl);

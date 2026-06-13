@@ -1,3 +1,4 @@
+import { join } from "node:path";
 import { Finding } from "../contracts/findings.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
@@ -26,7 +27,14 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let surfaceJsonPath: string | undefined;
 
   try {
-    const surface = await probeTargetSurface({ targetUrl: input.targetUrl });
+    const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
+    const surface = await probeTargetSurface({
+      targetUrl: input.targetUrl,
+      screenshot: {
+        absolutePath: join(store.runsDir, runId, screenshotRelativePath),
+        relativePath: screenshotRelativePath
+      }
+    });
     surfaceJsonPath = await writeSurface(store, runId, surface);
     findings.push(...evaluateBeginnerPersona({ runId, surface }));
   } catch (error) {

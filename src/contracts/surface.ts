@@ -19,7 +19,8 @@ export const PageSurfaceSchema = z.object({
   headings: z.array(z.string()),
   links: z.array(LinkSurfaceSchema),
   buttons: z.array(z.string()),
-  forms: z.array(FormSurfaceSchema)
+  forms: z.array(FormSurfaceSchema),
+  screenshot: z.string().optional()
 });
 
 export type LinkSurface = z.infer<typeof LinkSurfaceSchema>;

@@ -27,7 +27,7 @@ export function evaluateBeginnerPersona(input: BeginnerPersonaInput): Finding[] 
       actual: `The first screen${input.surface.title ? ` "${input.surface.title}"` : ""} has no links, buttons, or forms.`,
       reproducibility: { status: "reproduced", attempts: 1 },
       evidence: {
-        screenshots: [],
+        screenshots: input.surface.screenshot ? [input.surface.screenshot] : [],
         trace: "findings/finding_beginner_dead_end_001/trace.json",
         repro: "findings/finding_beginner_dead_end_001/repro.spec.ts"
       },
