@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:38 AEST
+Last updated: 2026-06-14 17:39 AEST
 
 ## Goal
 
@@ -19,7 +19,7 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 Latest pushed implementation commit:
 
 ```text
-16c7781 feat: extract local app claims
+51af454 chore: clean package build output
 ```
 
 Current pushed behavior:
@@ -289,11 +289,11 @@ port 4180 after audit: not listening
 
 Runtime artifacts were removed after smoke verification.
 
-## Active Slice
+## Completed Slice
 
 Slice: v1 package cleanup and final smoke.
 
-Session status: implementation verified; commit and push are next.
+Session status: implementation verified, committed, and pushed to `origin/main`.
 
 Intent:
 
@@ -402,4 +402,4 @@ On newer Ubuntu, use `libasound2t64`.
 
 ## Remaining v1 Work After This Slice
 
-- Run a completion audit against the original v1/open-source differentiation plan.
+- No known v1 blockers after the completion audit.
