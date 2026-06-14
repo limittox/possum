@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:32 AEST
+Last updated: 2026-06-14 17:33 AEST
 
 ## Goal
 
@@ -19,7 +19,7 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 Latest pushed implementation commit:
 
 ```text
-fe10509 feat: add finding judge gate
+16c7781 feat: extract local app claims
 ```
 
 Current pushed behavior:
@@ -28,6 +28,7 @@ Current pushed behavior:
 - `possum audit --command "<command>" --url <url>` starts a local app, waits for the URL, audits it, then stops the process.
 - Run commands are parsed without a shell and reject shell chaining, pipes, redirection, backgrounding, command substitution, newlines, and executable paths.
 - Findings pass through a local judge/dedupe gate before reports and artifacts are written.
+- `surface.json` includes deterministic homepage and README claim evidence.
 - `surface.json`, `report.md`, and `findings.json` are written.
 - Reachable pages get `personas/beginner/screenshots/first-page.png` when screenshot capture succeeds.
 - Reachable audits write persona traces for beginner, impatient, and hostile checks.
@@ -225,11 +226,11 @@ port 4180 after audit: not listening
 
 Runtime artifacts were removed after smoke verification.
 
-## Active Slice
+## Completed Slice
 
 Slice: local claim extraction.
 
-Session status: implementation verified; commit and push are next.
+Session status: implementation verified, committed, and pushed to `origin/main`.
 
 Intent:
 
