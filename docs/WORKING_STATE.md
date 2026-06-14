@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:18 AEST
+Last updated: 2026-06-14 17:19 AEST
 
 ## Goal
 
@@ -19,13 +19,14 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 Latest pushed implementation commit:
 
 ```text
-72347b2 feat: start app command for audits
+7b7e496 feat: sandbox run commands
 ```
 
 Current pushed behavior:
 
 - `possum audit --url <url>` probes a target app and writes `.possum/runs/<id>`.
 - `possum audit --command "<command>" --url <url>` starts a local app, waits for the URL, audits it, then stops the process.
+- Run commands are parsed without a shell and reject shell chaining, pipes, redirection, backgrounding, command substitution, newlines, and executable paths.
 - `surface.json`, `report.md`, and `findings.json` are written.
 - Reachable pages get `personas/beginner/screenshots/first-page.png` when screenshot capture succeeds.
 - Reachable audits write persona traces for beginner, impatient, and hostile checks.
@@ -102,11 +103,11 @@ port 4180 after audit: not listening
 
 Runtime artifacts were removed after smoke verification.
 
-## Active Slice
+## Completed Slice
 
 Slice: run-command sandbox rules.
 
-Session status: implementation verified; commit and push are next.
+Session status: implementation verified, committed, and pushed to `origin/main`.
 
 Intent:
 
@@ -226,4 +227,3 @@ On newer Ubuntu, use `libasound2t64`.
 ## Remaining v1 Work After This Slice
 
 - Add judge/dedupe gate beyond current deterministic findings.
-- Add sandbox restrictions around run-command execution.
