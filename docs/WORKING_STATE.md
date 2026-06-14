@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:19 AEST
+Last updated: 2026-06-14 17:24 AEST
 
 ## Goal
 
@@ -162,6 +162,64 @@ allowed command finding: finding_beginner_dead_end_001
 port 4180 after audit: not listening
 rejected command finding: Run command rejected by Possum command sandbox
 unsafe marker: not created
+```
+
+Runtime artifacts were removed after smoke verification.
+
+## Active Slice
+
+Slice: finding judge and dedupe gate.
+
+Session status: implementation verified; commit and push are next.
+
+Intent:
+
+- Add a small, inspectable gate between persona evaluators and run artifacts.
+- Accept only findings that are confirmed, reproduced, and have the required evidence pointers.
+- Suppress duplicate findings with the same `dedupeFingerprint` inside a run.
+- Keep discarded findings out of `findings.json`, Markdown reports, and per-finding artifact directories.
+- Preserve existing deterministic persona findings that pass the gate.
+
+Files changed:
+
+```text
+README.md
+docs/WORKING_STATE.md
+src/audit/audit.ts
+src/audit/findingJudge.ts
+tests/findingJudge.test.ts
+```
+
+TDD checkpoints:
+
+- `npm test -- tests/findingJudge.test.ts` failed because `src/audit/findingJudge.ts` did not exist.
+- Added `judgeFindings()` to accept only schema-valid, confirmed, reproduced findings with at least one replay attempt.
+- Added dedupe suppression by `dedupeFingerprint`, keeping the first accepted finding and rejecting later duplicates.
+- Wired `runAudit()` to pass persona findings through the judge before writing `findings.json`, Markdown reports, or per-finding artifacts.
+- Existing audit behavior still passes, proving current deterministic findings pass the gate.
+
+Fresh verification:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+git diff --check
+```
+
+Passed at 2026-06-14 17:24 AEST. Full test suite result: 13 files, 39 tests.
+
+Smoke verification:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+```
+
+Verification output showed:
+
+```text
+finding: finding_beginner_dead_end_001
+port 4180 after audit: not listening
 ```
 
 Runtime artifacts were removed after smoke verification.

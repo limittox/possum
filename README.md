@@ -19,6 +19,8 @@ coding agent can fix.
 - Writes plain-file evidence under `.possum/runs/<id>`.
 - Produces screenshots, persona traces, findings JSON/Markdown, and Playwright
   repro scripts.
+- Filters findings through a local judge/dedupe gate so reports contain
+  confirmed, reproduced, unique failures.
 - Replays failures with `possum replay <finding>`.
 - Renders existing runs with `possum report`.
 - Starts a stdio MCP server with `possum mcp`.

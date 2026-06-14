@@ -5,6 +5,7 @@ import { evaluateHostilePersona } from "../personas/hostile.js";
 import { evaluateImpatientPersona } from "../personas/impatient.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
+import { judgeFindings } from "./findingJudge.js";
 import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
@@ -85,18 +86,20 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     await managedRunCommand?.stop();
   }
 
+  const { accepted: acceptedFindings } = judgeFindings(findings);
+
   const written = await writeRunReport(store, {
     runId,
     targetUrl: input.targetUrl,
     startedAt: now.toISOString(),
     completedAt: now.toISOString(),
     personas: ["beginner", "impatient", "hostile"],
-    findings
+    findings: acceptedFindings
   });
 
   await Promise.all(
-    findings.map((finding) =>
-        writeFindingArtifacts(store, runId, finding, {
+    acceptedFindings.map((finding) =>
+      writeFindingArtifacts(store, runId, finding, {
           trace: createFindingTrace(input.targetUrl, finding, { hostileValidation, impatientDoubleSubmit }),
           reproSpec: createFindingRepro(input.targetUrl, finding)
         })
