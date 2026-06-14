@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:24 AEST
+Last updated: 2026-06-14 17:25 AEST
 
 ## Goal
 
@@ -19,7 +19,7 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 Latest pushed implementation commit:
 
 ```text
-7b7e496 feat: sandbox run commands
+fe10509 feat: add finding judge gate
 ```
 
 Current pushed behavior:
@@ -27,6 +27,7 @@ Current pushed behavior:
 - `possum audit --url <url>` probes a target app and writes `.possum/runs/<id>`.
 - `possum audit --command "<command>" --url <url>` starts a local app, waits for the URL, audits it, then stops the process.
 - Run commands are parsed without a shell and reject shell chaining, pipes, redirection, backgrounding, command substitution, newlines, and executable paths.
+- Findings pass through a local judge/dedupe gate before reports and artifacts are written.
 - `surface.json`, `report.md`, and `findings.json` are written.
 - Reachable pages get `personas/beginner/screenshots/first-page.png` when screenshot capture succeeds.
 - Reachable audits write persona traces for beginner, impatient, and hostile checks.
@@ -166,11 +167,11 @@ unsafe marker: not created
 
 Runtime artifacts were removed after smoke verification.
 
-## Active Slice
+## Completed Slice
 
 Slice: finding judge and dedupe gate.
 
-Session status: implementation verified; commit and push are next.
+Session status: implementation verified, committed, and pushed to `origin/main`.
 
 Intent:
 
@@ -284,4 +285,4 @@ On newer Ubuntu, use `libasound2t64`.
 
 ## Remaining v1 Work After This Slice
 
-- Add judge/dedupe gate beyond current deterministic findings.
+- Run a completion audit against the original v1/open-source differentiation plan.
