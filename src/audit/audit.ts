@@ -50,6 +50,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     const impatientTraceRelativePath = "personas/impatient/trace.json";
     const hostileTraceRelativePath = "personas/hostile/trace.json";
     const surface = await probeTargetSurface({
+      rootDir: input.rootDir,
       targetUrl: input.targetUrl,
       screenshot: {
         absolutePath: join(store.runsDir, runId, screenshotRelativePath),

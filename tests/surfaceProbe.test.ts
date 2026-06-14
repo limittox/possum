@@ -38,9 +38,13 @@ describe("probeTargetSurface", () => {
     const targetUrl = await serveHtml(`
       <!doctype html>
       <html>
-        <head><title>Project Pilot</title></head>
+        <head>
+          <title>Project Pilot</title>
+          <meta name="description" content="Create projects in minutes." />
+        </head>
         <body>
           <h1>Create your first project</h1>
+          <p>Invite your team without setup.</p>
           <a href="/signup">Start free</a>
           <button>Invite team</button>
           <form action="/projects" method="post">
@@ -58,6 +62,12 @@ describe("probeTargetSurface", () => {
     expect(surface.links).toContainEqual({ text: "Start free", href: "/signup" });
     expect(surface.buttons).toEqual(["Invite team"]);
     expect(surface.forms).toEqual([{ action: "/projects", method: "post", inputs: ["project_name", "email"] }]);
+    expect(surface.claims).toEqual([
+      { source: "homepage", text: "Project Pilot" },
+      { source: "homepage", text: "Create projects in minutes." },
+      { source: "homepage", text: "Create your first project" },
+      { source: "homepage", text: "Invite your team without setup." }
+    ]);
   });
 
   it("does not fail the surface probe when optional screenshot capture fails", async () => {

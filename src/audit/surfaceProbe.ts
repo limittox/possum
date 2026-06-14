@@ -2,6 +2,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import { dirname } from "node:path";
 import { chromium, type Page } from "playwright";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
+import { extractClaimsFromReadme, extractHomepageClaims } from "./claimExtractor.js";
 
 const BEGINNER_MISSION = "Find an obvious next step from first customer-facing screen.";
 
@@ -11,6 +12,7 @@ interface BrowserArtifact {
 }
 
 export interface ProbeTargetSurfaceInput {
+  rootDir?: string;
   targetUrl: string;
   screenshot?: BrowserArtifact;
   trace?: BrowserArtifact;
@@ -45,12 +47,16 @@ export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promis
     const surface = await page.evaluate(() => {
       const text = (value: string | null | undefined) => (value ?? "").replace(/\s+/g, " ").trim();
 
-      return {
-        title: document.title.trim(),
-        headings: Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
-          .map((element) => text(element.textContent))
-          .filter(Boolean),
-        links: Array.from(document.querySelectorAll("a"))
+    return {
+      title: document.title.trim(),
+      metaDescription: text(document.querySelector('meta[name="description"]')?.getAttribute("content")),
+      headings: Array.from(document.querySelectorAll("h1,h2,h3,h4,h5,h6"))
+        .map((element) => text(element.textContent))
+        .filter(Boolean),
+      paragraphs: Array.from(document.querySelectorAll("p"))
+        .map((element) => text(element.textContent))
+        .filter(Boolean),
+      links: Array.from(document.querySelectorAll("a"))
           .map((element) => ({
             text: text(element.textContent),
             href: element.getAttribute("href") ?? ""
@@ -69,13 +75,24 @@ export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promis
       };
     });
 
-    const parsedSurface = PageSurfaceSchema.parse({
-      targetUrl: input.targetUrl,
-      finalUrl: page.url(),
-      status: response.status(),
-      ...surface,
-      screenshot: screenshotRelativePath
-    });
+  const claims = [
+    ...extractHomepageClaims({
+      headings: surface.headings,
+      metaDescription: surface.metaDescription,
+      paragraphs: surface.paragraphs,
+      title: surface.title
+    }),
+    ...(input.rootDir ? await extractClaimsFromReadme(input.rootDir) : [])
+  ];
+
+  const parsedSurface = PageSurfaceSchema.parse({
+    targetUrl: input.targetUrl,
+    finalUrl: page.url(),
+    status: response.status(),
+    ...surface,
+    claims,
+    screenshot: screenshotRelativePath
+  });
 
     if (input.trace) {
       await writeBeginnerTrace({

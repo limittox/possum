@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:25 AEST
+Last updated: 2026-06-14 17:32 AEST
 
 ## Goal
 
@@ -219,6 +219,69 @@ node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner
 Verification output showed:
 
 ```text
+finding: finding_beginner_dead_end_001
+port 4180 after audit: not listening
+```
+
+Runtime artifacts were removed after smoke verification.
+
+## Active Slice
+
+Slice: local claim extraction.
+
+Session status: implementation verified; commit and push are next.
+
+Intent:
+
+- Add `claims` to `surface.json` as plain-file evidence from local app copy and repository README.
+- Extract homepage claims from title, meta description, headings, and short paragraphs.
+- Extract README claims from the audited repository root when `README.md` exists.
+- Keep extraction deterministic and local; no model or cloud dependency in this slice.
+- Preserve existing surface, persona, report, and finding behavior.
+
+Files changed:
+
+```text
+docs/WORKING_STATE.md
+src/contracts/surface.ts
+src/audit/claimExtractor.ts
+src/audit/surfaceProbe.ts
+src/audit/audit.ts
+tests/claimExtractor.test.ts
+tests/surfaceProbe.test.ts
+tests/auditProbe.test.ts
+```
+
+TDD checkpoints:
+
+- `npm test -- tests/claimExtractor.test.ts` failed because `src/audit/claimExtractor.ts` did not exist.
+- `npm test -- tests/surfaceProbe.test.ts` failed because `surface.claims` was missing from browser surface output.
+- `npm test -- tests/auditProbe.test.ts` failed because `surface.json` did not include homepage or README claim sources.
+- Added deterministic homepage extraction from title, meta description, headings, and short paragraphs.
+- Added deterministic README extraction from H1 and non-code paragraph text in `README.md`.
+- Wired `runAudit()` to pass `rootDir` into `probeTargetSurface()` so local README claims are included in `.possum/runs/<id>/surface.json`.
+
+Fresh verification:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+git diff --check
+```
+
+Passed at 2026-06-14 17:32 AEST. Full test suite result: 14 files, 41 tests.
+
+Smoke verification:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+```
+
+Verification output showed:
+
+```text
+surface.json claims: homepage and readme sources present
 finding: finding_beginner_dead_end_001
 port 4180 after audit: not listening
 ```

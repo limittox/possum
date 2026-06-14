@@ -11,6 +11,11 @@ export const FormSurfaceSchema = z.object({
   inputs: z.array(z.string())
 });
 
+export const ClaimSurfaceSchema = z.object({
+  source: z.enum(["homepage", "readme"]),
+  text: z.string().min(1)
+});
+
 export const PageSurfaceSchema = z.object({
   targetUrl: z.string().url(),
   finalUrl: z.string().url(),
@@ -20,9 +25,11 @@ export const PageSurfaceSchema = z.object({
   links: z.array(LinkSurfaceSchema),
   buttons: z.array(z.string()),
   forms: z.array(FormSurfaceSchema),
+  claims: z.array(ClaimSurfaceSchema).optional(),
   screenshot: z.string().optional()
 });
 
 export type LinkSurface = z.infer<typeof LinkSurfaceSchema>;
 export type FormSurface = z.infer<typeof FormSurfaceSchema>;
+export type ClaimSurface = z.infer<typeof ClaimSurfaceSchema>;
 export type PageSurface = z.infer<typeof PageSurfaceSchema>;

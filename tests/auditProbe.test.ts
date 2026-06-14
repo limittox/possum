@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
-import { access, mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -130,6 +130,7 @@ async function serveHostileErrorForm(): Promise<{ targetUrl: string; submissions
 describe("runAudit", () => {
   it("writes surface.json for a reachable app", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-real-audit-"));
+    await writeFile(join(root, "README.md"), "# Reachable App\n\nCustomers can launch a workspace in minutes.\n", "utf8");
     const targetUrl = await serveHtml("<title>Reachable App</title><h1>Welcome</h1>");
 
     const result = await runAudit({
@@ -140,6 +141,9 @@ describe("runAudit", () => {
 
     const surfaceJson = await readFile(join(result.runDir, "surface.json"), "utf8");
     expect(surfaceJson).toContain("\"title\": \"Reachable App\"");
+    expect(surfaceJson).toContain("\"source\": \"homepage\"");
+    expect(surfaceJson).toContain("\"source\": \"readme\"");
+    expect(surfaceJson).toContain("Customers can launch a workspace in minutes.");
     expect(surfaceJson).toContain("\"screenshot\": \"personas/beginner/screenshots/first-page.png\"");
 
     const screenshot = await readFile(join(result.runDir, "personas", "beginner", "screenshots", "first-page.png"));
