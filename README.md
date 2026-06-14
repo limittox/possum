@@ -106,6 +106,21 @@ node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner
 
 The fixtures cover `finding_beginner_dead_end_001`, `finding_impatient_double_submit_001`, and `finding_hostile_server_error_001`.
 
+## Run Command Sandbox
+
+`possum audit --command` starts commands without a shell. Possum parses the command into environment assignments, a bare executable from `PATH`, and arguments.
+
+Allowed examples:
+
+```bash
+possum audit --command "npm run dev" --url http://localhost:3000
+possum audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+```
+
+Rejected command shapes include shell chaining, pipes, redirection, backgrounding, command substitution, newlines, and executable paths such as `/usr/bin/node` or `./node_modules/.bin/vite`. Use `npm run dev`, `npx vite`, or another bare executable instead.
+
+## Doctor
+
 Check local browser dependencies:
 
 ```bash

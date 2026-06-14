@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { access, mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -53,6 +53,15 @@ async function waitForUnreachable(url: string): Promise<void> {
   }
 
   throw new Error(`${url} still reachable`);
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 async function serveDoubleSubmitForm(): Promise<{ targetUrl: string; submissions: () => number }> {
@@ -167,13 +176,46 @@ describe("runAudit", () => {
     const result = await runAudit({
       rootDir: root,
       targetUrl,
-      runCommand: `PORT=${port} ${process.execPath} ${JSON.stringify(fixturePath)}`,
+      runCommand: `PORT=${port} node ${JSON.stringify(fixturePath)}`,
       now: new Date("2026-06-13T02:00:00.000Z")
     });
 
     const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
     expect(findingsJson).toContain("finding_beginner_dead_end_001");
     await waitForUnreachable(targetUrl);
+  });
+
+  it("rejects unsafe run commands before shell startup", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-unsafe-run-command-"));
+    const markerPath = join(root, "unsafe-command-ran.txt");
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl: "http://127.0.0.1:9",
+      runCommand: `node -e "console.log('unsafe')" > ${JSON.stringify(markerPath)}`,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_beginner_access_001");
+    expect(findingsJson).toContain("Run command rejected by Possum command sandbox");
+    await expect(pathExists(markerPath)).resolves.toBe(false);
+  });
+
+  it("reports an access finding when the run command executable is missing", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-missing-run-command-"));
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl: "http://127.0.0.1:9",
+      runCommand: "missing-possum-dev-command --port 3000",
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_beginner_access_001");
+    expect(findingsJson).toContain("Run command failed to start");
+    expect(findingsJson).toContain("missing-possum-dev-command");
   });
 
   it("reports a beginner dead-end finding for a reachable page with no actions", async () => {

@@ -42,7 +42,7 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
       description: "Run a local Possum audit against a target URL.",
       inputSchema: {
         rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
-        runCommand: z4.string().optional().describe("Command to start the local app before auditing."),
+        runCommand: z4.string().optional().describe("Sandboxed command to start the local app before auditing."),
         targetUrl: z4.string().url().describe("Local app URL to audit.")
       }
     },

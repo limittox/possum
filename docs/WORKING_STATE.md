@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:04 AEST
+Last updated: 2026-06-14 17:18 AEST
 
 ## Goal
 
@@ -98,6 +98,69 @@ Verification output showed:
 ```text
 finding: finding_beginner_dead_end_001
 port 4180 after audit: not listening
+```
+
+Runtime artifacts were removed after smoke verification.
+
+## Active Slice
+
+Slice: run-command sandbox rules.
+
+Session status: implementation verified; commit and push are next.
+
+Intent:
+
+- Add an inspectable validation layer before `runCommand` starts a shell process.
+- Reject command strings with shell chaining, redirection, command substitution, backgrounding, newlines, or absolute executable paths.
+- Keep simple local app startup commands working, including environment assignments such as `PORT=4180 npm run dev`.
+- Route CLI and MCP through the same core validation by keeping the guard inside `src/audit/runCommand.ts`.
+- Document the safe command shape for users and coding agents.
+
+Files changed:
+
+```text
+README.md
+docs/WORKING_STATE.md
+src/cli/main.ts
+src/mcp/server.ts
+src/audit/runCommand.ts
+tests/auditProbe.test.ts
+tests/mcpHandlers.test.ts
+```
+
+TDD checkpoints:
+
+- `npm test -- tests/auditProbe.test.ts` failed because a command with `>` ran through the shell and produced a normal startup failure instead of a sandbox rejection.
+- After adding command parsing and switching startup to `spawn(executable, args, { shell: false })`, the unsafe command test passed and verified the redirected marker file was not created.
+- A second regression test for a missing executable failed with an unhandled `spawn ENOENT` timeout.
+- Startup errors now flow through the managed exit promise and produce an access finding containing `Run command failed to start`.
+- Existing command-started audit and MCP tests were updated to use bare `node` from `PATH` while still passing absolute fixture paths as arguments.
+
+Fresh verification:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+git diff --check
+```
+
+Passed at 2026-06-14 17:18 AEST. Full test suite result: 12 files, 37 tests.
+
+Smoke verification:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+node dist/src/cli/main.js audit --command "node -e \"console.log('unsafe')\" > /tmp/possum-sandbox-smoke.txt" --url http://127.0.0.1:9
+```
+
+Verification output showed:
+
+```text
+allowed command finding: finding_beginner_dead_end_001
+port 4180 after audit: not listening
+rejected command finding: Run command rejected by Possum command sandbox
+unsafe marker: not created
 ```
 
 Runtime artifacts were removed after smoke verification.

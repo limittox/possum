@@ -73,7 +73,7 @@ describe("runPossumMcpTool", () => {
       "run_audit",
       {
         rootDir,
-        runCommand: `PORT=${port} ${process.execPath} ${JSON.stringify(fixturePath)}`,
+        runCommand: `PORT=${port} node ${JSON.stringify(fixturePath)}`,
         targetUrl
       },
       { now: new Date("2026-06-13T02:00:00.000Z") }
