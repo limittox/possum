@@ -1,5 +1,8 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
+import { mkdtemp } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { probeTargetSurface } from "../src/audit/surfaceProbe.js";
 
@@ -55,5 +58,21 @@ describe("probeTargetSurface", () => {
     expect(surface.links).toContainEqual({ text: "Start free", href: "/signup" });
     expect(surface.buttons).toEqual(["Invite team"]);
     expect(surface.forms).toEqual([{ action: "/projects", method: "post", inputs: ["project_name", "email"] }]);
+  });
+
+  it("does not fail the surface probe when optional screenshot capture fails", async () => {
+    const targetUrl = await serveHtml("<title>Screenshot Optional</title><h1>Welcome</h1>");
+    const directoryPath = await mkdtemp(join(tmpdir(), "possum-screenshot-directory-"));
+
+    const surface = await probeTargetSurface({
+      targetUrl,
+      screenshot: {
+        absolutePath: directoryPath,
+        relativePath: "personas/beginner/screenshots/first-page.png"
+      }
+    });
+
+    expect(surface.title).toBe("Screenshot Optional");
+    expect(surface.screenshot).toBeUndefined();
   });
 });

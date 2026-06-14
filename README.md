@@ -81,6 +81,24 @@ npm test
 npm run build
 ```
 
+## Fixture Apps
+
+Possum includes intentionally broken local fixture apps for known findings:
+
+```bash
+PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs
+PORT=4181 node fixtures/apps/impatient-double-submit/server.mjs
+PORT=4182 node fixtures/apps/hostile-server-error/server.mjs
+```
+
+Audit a running fixture with:
+
+```bash
+node dist/src/cli/main.js audit --url http://127.0.0.1:4180
+```
+
+The fixtures cover `finding_beginner_dead_end_001`, `finding_impatient_double_submit_001`, and `finding_hostile_server_error_001`.
+
 Check local browser dependencies:
 
 ```bash

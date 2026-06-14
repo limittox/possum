@@ -31,9 +31,15 @@ export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promis
       throw new Error(`Target returned HTTP ${response.status()}`);
     }
 
+    let screenshotRelativePath: string | undefined;
     if (input.screenshot) {
       await mkdir(dirname(input.screenshot.absolutePath), { recursive: true });
-      await page.screenshot({ path: input.screenshot.absolutePath, fullPage: true });
+      try {
+        await page.screenshot({ path: input.screenshot.absolutePath, fullPage: true });
+        screenshotRelativePath = input.screenshot.relativePath;
+      } catch {
+        screenshotRelativePath = undefined;
+      }
     }
 
     const surface = await page.evaluate(() => {
@@ -68,7 +74,7 @@ export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promis
       finalUrl: page.url(),
       status: response.status(),
       ...surface,
-      screenshot: input.screenshot?.relativePath
+      screenshot: screenshotRelativePath
     });
 
     if (input.trace) {

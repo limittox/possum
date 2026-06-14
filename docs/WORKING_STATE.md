@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 02:05 AEST
+Last updated: 2026-06-14 16:46 AEST
 
 ## Goal
 
@@ -11,13 +11,14 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 - local `.possum/runs/<id>` evidence
 - screenshots, traces, reports, and reproducible Playwright repros
 - browser-backed persona findings
+- fixture apps and benchmark corpus for known findings
 
 ## Current Pushed Baseline
 
 Latest pushed commit before this slice:
 
 ```text
-4f58860 feat: detect impatient double submits
+0f90ab0 feat: detect hostile server errors
 ```
 
 Current pushed behavior:
@@ -25,9 +26,10 @@ Current pushed behavior:
 - `possum audit --url <url>` probes a target app and writes `.possum/runs/<id>`.
 - `surface.json`, `report.md`, and `findings.json` are written.
 - Reachable pages get `personas/beginner/screenshots/first-page.png`.
-- Reachable audits write `personas/beginner/trace.json`.
+- Reachable audits write persona traces for beginner, impatient, and hostile checks.
 - Beginner persona catches a reachable app whose first screen has no links, buttons, or forms.
 - Impatient persona catches duplicate form submissions caused by rapid submit clicks.
+- Hostile persona catches mutation responses that produce HTTP 500+ for unexpected input.
 - Unreachable apps produce an access finding.
 - Findings write `report.md`, `trace.json`, and `repro.spec.ts`.
 - `possum replay <reproPath>` executes Playwright against generated repros.
@@ -36,31 +38,39 @@ Current pushed behavior:
 
 ## Active Slice
 
-Slice: hostile server-error persona.
+Slice: fixture apps for known findings.
 
 Intent:
 
-- Add a hostile browser-backed check for obvious validation/error-page failures.
-- Navigate to the target in a fresh browser page.
-- Fill the first form with an injection-shaped payload.
-- Submit once and watch mutation responses.
-- Report a finding when unexpected input produces HTTP 500+.
+- Add checked-in, intentionally broken local fixture apps for the current known findings.
+- Make each fixture runnable directly with `node fixtures/apps/<name>/server.mjs`.
+- Make each fixture importable from tests through `createFixtureServer()`.
+- Include fixtures in the npm package file list so the open-source distribution contains them.
+- Document fixture usage in README and `fixtures/apps/README.md`.
 
 Files changed:
 
 ```text
+README.md
 docs/WORKING_STATE.md
-src/audit/audit.ts
-src/audit/hostileProbe.ts
-src/personas/hostile.ts
-tests/auditProbe.test.ts
+fixtures/apps/README.md
+fixtures/apps/beginner-dead-end/server.mjs
+fixtures/apps/hostile-server-error/server.mjs
+fixtures/apps/impatient-double-submit/server.mjs
+package.json
+tests/fixtureApps.test.ts
+tests/surfaceProbe.test.ts
 ```
 
 TDD checkpoint:
 
-- `npm test -- tests/auditProbe.test.ts` failed at 2026-06-14 02:00 AEST because only existing impatient submissions happened; no hostile payload submission or finding existed.
-- The hostile probe now submits `<script>alert("possum")</script>` into the first form.
-- The probe records mutation responses with HTTP status 500+ and the persona emits `finding_hostile_server_error_001`.
+- `npm test -- tests/fixtureApps.test.ts` failed because the fixture server modules did not exist.
+- After adding fixtures, the focused fixture suite proved each fixture reproduces its intended finding:
+  - `finding_beginner_dead_end_001`
+  - `finding_impatient_double_submit_001`
+  - `finding_hostile_server_error_001`
+- A full-suite rerun exposed that optional screenshot capture could throw and become a false access finding.
+- `probeTargetSurface` now treats screenshot capture as best-effort and omits `surface.screenshot` when capture fails.
 
 Current verification:
 
@@ -71,31 +81,32 @@ npm run build
 git diff --check
 ```
 
-Passed at 2026-06-14 02:03 AEST. Full test suite result: 11 files, 30 tests.
+Passed at 2026-06-14 16:46 AEST. Full test suite result: 12 files, 34 tests.
 
 Smoke verification:
 
 ```bash
-node dist/src/cli/main.js audit --url http://127.0.0.1:4179
+PORT=4181 node fixtures/apps/impatient-double-submit/server.mjs
+node dist/src/cli/main.js audit --url http://127.0.0.1:4181
 ```
 
-With a local fixture whose submit handler posts to `/comment` and returns HTTP 500 for encoded `<script>` payloads, created `run_20260613_160417`.
+Created `run_20260614_064013`.
 Verification output showed:
 
 ```text
-server submissions: 3
-findings: finding_impatient_double_submit_001,finding_hostile_server_error_001
-hostile status: 500
-hostile url: http://127.0.0.1:4179/comment
+fixture POST count: 3
+finding: finding_impatient_double_submit_001
 ```
+
+The count is 3 because the hostile persona also submits the fixture form once after the impatient double-click. The fixture still reproduces the intended impatient finding.
 
 Generated files included:
 
 ```text
-.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/report.md
-.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/trace.json
-.possum/runs/run_20260613_160417/findings/finding_hostile_server_error_001/repro.spec.ts
-.possum/runs/run_20260613_160417/personas/hostile/trace.json
+.possum/runs/run_20260614_064013/findings/finding_impatient_double_submit_001/report.md
+.possum/runs/run_20260614_064013/findings/finding_impatient_double_submit_001/trace.json
+.possum/runs/run_20260614_064013/findings/finding_impatient_double_submit_001/repro.spec.ts
+.possum/runs/run_20260614_064013/personas/impatient/trace.json
 ```
 
 Runtime artifacts were removed after smoke verification.
@@ -109,7 +120,7 @@ git status --short --branch
 git diff --stat
 ```
 
-2. If continuing without trusting the last checkpoint, rerun verification:
+2. Rerun verification because this document changed after the last full check:
 
 ```bash
 npm run typecheck
@@ -121,8 +132,8 @@ git diff --check
 3. If this slice is not committed yet, commit and push:
 
 ```bash
-git add docs/WORKING_STATE.md src/audit/audit.ts src/audit/hostileProbe.ts src/personas/hostile.ts tests/auditProbe.test.ts
-git commit -m "feat: detect hostile server errors"
+git add README.md docs/WORKING_STATE.md fixtures/apps package.json src/audit/surfaceProbe.ts tests/fixtureApps.test.ts tests/surfaceProbe.test.ts
+git commit -m "feat: add known finding fixture apps"
 git push origin main
 ```
 
@@ -152,6 +163,5 @@ On newer Ubuntu, use `libasound2t64`.
 
 ## Remaining v1 Work After This Slice
 
-- Add fixture apps for known findings.
 - Add judge/dedupe gate beyond current deterministic findings.
 - Add config run-command support and sandboxing.
