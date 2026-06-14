@@ -33,6 +33,14 @@ async function serveHtml(html: string): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function getAvailablePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return address.port;
+}
+
 describe("runPossumMcpTool", () => {
   it("runs an audit and returns structured run data", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-run-"));
@@ -52,6 +60,34 @@ describe("runPossumMcpTool", () => {
     expect(result.content[0]).toMatchObject({
       type: "text",
       text: expect.stringContaining("run_20260613_020000")
+    });
+  });
+
+  it("runs an audit after starting a target app command", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-run-command-"));
+    const port = await getAvailablePort();
+    const targetUrl = `http://127.0.0.1:${port}`;
+    const fixturePath = join(process.cwd(), "fixtures", "apps", "beginner-dead-end", "server.mjs");
+
+    const result = await runPossumMcpTool(
+      "run_audit",
+      {
+        rootDir,
+        runCommand: `PORT=${port} ${process.execPath} ${JSON.stringify(fixturePath)}`,
+        targetUrl
+      },
+      { now: new Date("2026-06-13T02:00:00.000Z") }
+    );
+
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_20260613_020000",
+      targetUrl,
+      findingsCount: 1
+    });
+
+    const list = await runPossumMcpTool("list_findings", { rootDir, runId: "run_20260613_020000" });
+    expect(list.structuredContent).toMatchObject({
+      findings: [expect.objectContaining({ id: "finding_beginner_dead_end_001" })]
     });
   });
 

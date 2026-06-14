@@ -42,6 +42,7 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
       description: "Run a local Possum audit against a target URL.",
       inputSchema: {
         rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
+        runCommand: z4.string().optional().describe("Command to start the local app before auditing."),
         targetUrl: z4.string().url().describe("Local app URL to audit.")
       }
     },
@@ -107,6 +108,7 @@ export async function startPossumMcpServer(dependencies: PossumMcpDependencies =
 
 const RunAuditArgsSchema = z.object({
   rootDir: z.string().optional(),
+  runCommand: z.string().optional(),
   targetUrl: z.string().url()
 });
 
@@ -148,6 +150,7 @@ async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencie
   const rootDir = resolveRootDir(args.rootDir, dependencies);
   const result = await runAudit({
     rootDir,
+    runCommand: args.runCommand,
     targetUrl: args.targetUrl,
     now: dependencies.now
   });

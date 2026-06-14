@@ -33,6 +33,28 @@ async function serveHtml(html: string): Promise<string> {
   return `http://127.0.0.1:${address.port}`;
 }
 
+async function getAvailablePort(): Promise<number> {
+  const server = createServer();
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return address.port;
+}
+
+async function waitForUnreachable(url: string): Promise<void> {
+  const deadline = Date.now() + 2000;
+  while (Date.now() < deadline) {
+    try {
+      await fetch(url, { signal: AbortSignal.timeout(200) });
+    } catch {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+
+  throw new Error(`${url} still reachable`);
+}
+
 async function serveDoubleSubmitForm(): Promise<{ targetUrl: string; submissions: () => number }> {
   let submissions = 0;
   const server = createServer((request, response) => {
@@ -134,6 +156,24 @@ describe("runAudit", () => {
 
     const trace = JSON.parse(traceJson) as { steps: Array<{ action: string; finalUrl?: string }> };
     expect(trace.steps).toContainEqual(expect.objectContaining({ action: "after_click", finalUrl: `${targetUrl}/start` }));
+  });
+
+  it("starts the target app from a run command and stops it after audit", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-run-command-audit-"));
+    const port = await getAvailablePort();
+    const targetUrl = `http://127.0.0.1:${port}`;
+    const fixturePath = join(process.cwd(), "fixtures", "apps", "beginner-dead-end", "server.mjs");
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      runCommand: `PORT=${port} ${process.execPath} ${JSON.stringify(fixturePath)}`,
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("finding_beginner_dead_end_001");
+    await waitForUnreachable(targetUrl);
   });
 
   it("reports a beginner dead-end finding for a reachable page with no actions", async () => {

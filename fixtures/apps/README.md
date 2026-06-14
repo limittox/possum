@@ -16,6 +16,12 @@ Then audit it:
 node dist/src/cli/main.js audit --url http://127.0.0.1:4180
 ```
 
+Or let Possum start it:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+```
+
 Fixtures:
 
 - `beginner-dead-end`: first screen has no links, buttons, or forms; should produce `finding_beginner_dead_end_001`.

@@ -13,6 +13,7 @@ coding agent can fix.
 ## What It Does
 
 - Runs locally against `localhost` with `possum audit`.
+- Can start a local app for the audit with `possum audit --command "npm run dev" --url http://localhost:3000`.
 - Simulates customers such as beginner, impatient, hostile, and returning users.
 - Tests claim-vs-reality from README, homepage, and product copy.
 - Writes plain-file evidence under `.possum/runs/<id>`.
@@ -95,6 +96,12 @@ Audit a running fixture with:
 
 ```bash
 node dist/src/cli/main.js audit --url http://127.0.0.1:4180
+```
+
+Or let Possum start the fixture for the audit:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
 ```
 
 The fixtures cover `finding_beginner_dead_end_001`, `finding_impatient_double_submit_001`, and `finding_hostile_server_error_001`.

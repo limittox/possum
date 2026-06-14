@@ -29,9 +29,11 @@ export function buildProgram(deps: CliDependencies): Command {
     .command("audit")
     .description("Run a local customer audit.")
     .requiredOption("--url <url>", "Local app URL to audit")
-    .action(async (options: { url: string }) => {
+    .option("--command <command>", "Command to start the local app before auditing")
+    .action(async (options: { command?: string; url: string }) => {
       const result = await runAudit({
         rootDir: deps.cwd,
+        runCommand: options.command,
         targetUrl: options.url,
         now: deps.now
       });

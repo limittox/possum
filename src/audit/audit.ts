@@ -7,10 +7,12 @@ import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } f
 import { formatRunId } from "./auditStub.js";
 import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
+import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 
 export interface AuditInput {
   rootDir: string;
+  runCommand?: string;
   targetUrl: string;
   now?: Date;
 }
@@ -31,8 +33,17 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let surfaceJsonPath: string | undefined;
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
   let hostileValidation: HostileProbeResult | undefined;
+  let managedRunCommand: ManagedRunCommand | undefined;
 
   try {
+    if (input.runCommand) {
+      managedRunCommand = await startRunCommand({
+        command: input.runCommand,
+        cwd: input.rootDir,
+        targetUrl: input.targetUrl
+      });
+    }
+
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
     const traceRelativePath = "personas/beginner/trace.json";
     const impatientTraceRelativePath = "personas/impatient/trace.json";
@@ -70,6 +81,8 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     findings.push(...evaluateHostilePersona({ runId, validation: hostileValidation }));
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
+  } finally {
+    await managedRunCommand?.stop();
   }
 
   const written = await writeRunReport(store, {
