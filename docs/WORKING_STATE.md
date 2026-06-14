@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:33 AEST
+Last updated: 2026-06-14 17:38 AEST
 
 ## Goal
 
@@ -285,6 +285,59 @@ Verification output showed:
 surface.json claims: homepage and readme sources present
 finding: finding_beginner_dead_end_001
 port 4180 after audit: not listening
+```
+
+Runtime artifacts were removed after smoke verification.
+
+## Active Slice
+
+Slice: v1 package cleanup and final smoke.
+
+Session status: implementation verified; commit and push are next.
+
+Intent:
+
+- Align README replay wording with the actual CLI command: `possum replay <reproPath>`.
+- Keep `npm run typecheck` covering both source and tests.
+- Make `npm run build` emit runtime source only by using `tsconfig.build.json`.
+- Clean stale `dist` output before build so `npm pack --dry-run` does not include `dist/tests`.
+- Verify packaged runtime includes built CLI/core files and fixture apps.
+
+Files changed:
+
+```text
+README.md
+docs/WORKING_STATE.md
+package.json
+tsconfig.build.json
+```
+
+Fresh verification:
+
+```bash
+npm run typecheck
+npm test
+npm run build
+git diff --check
+npm pack --dry-run
+```
+
+Passed at 2026-06-14 17:38 AEST. Full test suite result: 14 files, 41 tests.
+
+Smoke verification:
+
+```bash
+node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
+```
+
+Verification output showed:
+
+```text
+run files: report.md, surface.json, findings.json present
+surface.json claims: homepage and readme sources present
+finding: finding_beginner_dead_end_001
+port 4180 after audit: not listening
+package dry-run: runtime dist and fixture apps present; dist/tests absent
 ```
 
 Runtime artifacts were removed after smoke verification.

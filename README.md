@@ -21,7 +21,7 @@ coding agent can fix.
   repro scripts.
 - Filters findings through a local judge/dedupe gate so reports contain
   confirmed, reproduced, unique failures.
-- Replays failures with `possum replay <finding>`.
+- Replays generated repros with `possum replay <reproPath>`.
 - Renders existing runs with `possum report`.
 - Starts a stdio MCP server with `possum mcp`.
 
@@ -43,7 +43,7 @@ That loop should look like:
 3. If useful, it runs `possum audit` against the local app.
 4. Possum writes findings, screenshots, traces, and repro scripts.
 5. Coding agent fixes any relevant finding.
-6. Coding agent runs `possum replay <finding>` to verify the customer failure no
+6. Coding agent runs `possum replay <reproPath>` to verify the customer failure no
    longer reproduces.
 
 The local CLI is the baseline integration surface. An MCP server can expose the
