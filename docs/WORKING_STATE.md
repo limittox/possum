@@ -1,6 +1,6 @@
 # Possum Working State
 
-Last updated: 2026-06-14 17:02 AEST
+Last updated: 2026-06-14 17:04 AEST
 
 ## Goal
 
@@ -14,17 +14,18 @@ Get v1 Possum running as a local-first customer simulator for AI-built apps with
 - fixture apps and benchmark corpus for known findings
 - command-driven local app startup for one-shot audits
 
-## Current Pushed Baseline
+## Current Pushed Implementation
 
-Latest pushed commit before this slice:
+Latest pushed implementation commit:
 
 ```text
-0b1bb36 feat: add known finding fixture apps
+72347b2 feat: start app command for audits
 ```
 
 Current pushed behavior:
 
 - `possum audit --url <url>` probes a target app and writes `.possum/runs/<id>`.
+- `possum audit --command "<command>" --url <url>` starts a local app, waits for the URL, audits it, then stops the process.
 - `surface.json`, `report.md`, and `findings.json` are written.
 - Reachable pages get `personas/beginner/screenshots/first-page.png` when screenshot capture succeeds.
 - Reachable audits write persona traces for beginner, impatient, and hostile checks.
@@ -35,14 +36,14 @@ Current pushed behavior:
 - Unreachable apps produce an access finding.
 - Findings write `report.md`, `trace.json`, and `repro.spec.ts`.
 - `possum replay <reproPath>` executes Playwright against generated repros.
-- `possum mcp` starts a stdio MCP server.
+- `possum mcp` starts the stdio MCP server.
 - `possum doctor` checks Playwright system dependency readiness and prints install guidance.
 
-## Active Slice
+## Completed Slice
 
 Slice: run-command audit startup.
 
-Session status: implementation reviewed; fresh verification passed; staging, commit, and push are next.
+Session status: implementation verified, committed, and pushed to `origin/main`.
 
 Intent:
 
@@ -71,9 +72,9 @@ TDD checkpoints:
 - `npm test -- tests/auditProbe.test.ts` failed because `runAudit` ignored `runCommand` and produced `finding_beginner_access_001`.
 - After wiring the core helper, `tests/auditProbe.test.ts` passed and verified the started fixture process becomes unreachable after audit cleanup.
 - `npm test -- tests/mcpHandlers.test.ts` initially passed too weakly because an access finding also had count 1; the test now asserts `finding_beginner_dead_end_001` from a command-started fixture.
-- After adding `runCommand` to the MCP schema/handler, the focused MCP suite passed.
+- After adding `runCommand` to the MCP schema and handler, the focused MCP suite passed.
 
-Current verification:
+Fresh verification:
 
 ```bash
 npm run typecheck
@@ -91,6 +92,7 @@ node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner
 ```
 
 Created `run_20260614_070233`.
+
 Verification output showed:
 
 ```text
@@ -102,14 +104,20 @@ Runtime artifacts were removed after smoke verification.
 
 ## Resume Steps
 
-1. Inspect worktree:
+1. Inspect the worktree:
 
 ```bash
 git status --short --branch
-git diff --stat
 ```
 
-2. Run full verification:
+Expected local leftovers from prior sessions:
+
+```text
+?? .headroom/
+?? AGENTS.md
+```
+
+2. Run full verification when starting another implementation slice:
 
 ```bash
 npm run typecheck
@@ -118,7 +126,7 @@ npm run build
 git diff --check
 ```
 
-3. Smoke test the built CLI:
+3. Smoke test the built CLI if touching audit startup behavior:
 
 ```bash
 node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
@@ -126,13 +134,7 @@ node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner
 
 Expected finding: `finding_beginner_dead_end_001`.
 
-4. If this slice is not committed yet, commit and push:
-
-```bash
-git add README.md docs/WORKING_STATE.md fixtures/apps/README.md src/audit/audit.ts src/audit/runCommand.ts src/cli/main.ts src/mcp/server.ts tests/auditProbe.test.ts tests/mcpHandlers.test.ts
-git commit -m "feat: start app command for audits"
-git push origin main
-```
+4. Continue with the next v1 slice from "Remaining v1 Work After This Slice".
 
 ## Known Environment Notes
 
