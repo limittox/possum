@@ -70,10 +70,12 @@ Confirmation model (how a non-deterministic finding earns the existing gate):
 
 Model configuration:
 
-- Default provider `anthropic`. `models.judgeModel` covers claim triage and
-  judging; `models.personaModel` covers the agent navigation loop. A mid-tier
-  default model is recommended; exact model identifiers are deferred to
-  implementation so they do not go stale in this ADR.
+- Supported providers are `anthropic` (Anthropic API, `ANTHROPIC_API_KEY`, Claude
+  model ids) and `openrouter` (OpenRouter's OpenAI-compatible API,
+  `OPENROUTER_API_KEY`, OpenRouter model slugs). `models.judgeModel` covers claim
+  triage and judging; `models.personaModel` covers the agent navigation loop.
+  Exact model identifiers are deferred to configuration so they do not go stale in
+  this ADR. Direct OpenAI support remains a follow-up.
 
 Reliability and isolation:
 
@@ -174,3 +176,5 @@ written and the app process is stopped after the audit.
   agent navigation budget.
 - Document recommended model defaults and per-provider setup once the agent loop
   has real usage.
+- Add a direct OpenAI provider (the `openai` enum value is reserved but not yet
+  implemented; OpenRouter already covers OpenAI models via its compatible API).
