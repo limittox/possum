@@ -1,21 +1,36 @@
 import { join } from "node:path";
+import { Browser, chromium } from "playwright";
 import { Finding } from "../contracts/findings.js";
+import { LlmClient } from "../llm/client.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
+import { evaluateClaimsPersona } from "../personas/claims.js";
 import { evaluateHostilePersona } from "../personas/hostile.js";
 import { evaluateImpatientPersona } from "../personas/impatient.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
+import { ClaimPage } from "./claimPage.js";
+import { ClaimModels, verifyClaimsWithStability } from "./claimVerification.js";
+import { createPlaywrightClaimPage } from "./playwrightClaimPage.js";
 import { judgeFindings } from "./findingJudge.js";
 import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 
+export interface AuditClaimVerification {
+  llm: LlmClient;
+  models: ClaimModels;
+  maxSteps: number;
+  attempts: number;
+  pageFactory?: () => Promise<ClaimPage>;
+}
+
 export interface AuditInput {
   rootDir: string;
   runCommand?: string;
   targetUrl: string;
   now?: Date;
+  claimVerification?: AuditClaimVerification;
 }
 
 export interface AuditResult {
@@ -35,6 +50,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
   let hostileValidation: HostileProbeResult | undefined;
   let managedRunCommand: ManagedRunCommand | undefined;
+  const claimBrowsers: Browser[] = [];
 
   try {
     if (input.runCommand) {
@@ -81,9 +97,44 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
       }
     });
     findings.push(...evaluateHostilePersona({ runId, validation: hostileValidation }));
+
+    if (input.claimVerification) {
+      const verification = input.claimVerification;
+      const pageFactory =
+        verification.pageFactory ??
+        (async () => {
+          const browser = await chromium.launch();
+          claimBrowsers.push(browser);
+          const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+          await page.goto(input.targetUrl, { waitUntil: "domcontentloaded", timeout: 5000 });
+          return createPlaywrightClaimPage(page);
+        });
+
+      const confirmed = await verifyClaimsWithStability({
+        claims: surface.claims ?? [],
+        pageFactory,
+        llm: verification.llm,
+        models: verification.models,
+        maxSteps: verification.maxSteps,
+        attempts: verification.attempts
+      });
+
+      confirmed.forEach((entry, index) => {
+        findings.push(
+          ...evaluateClaimsPersona({
+            runId,
+            index,
+            result: entry.result,
+            finalUrl: surface.finalUrl,
+            reproducibility: entry.reproducibility
+          })
+        );
+      });
+    }
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
   } finally {
+    await Promise.all(claimBrowsers.map((browser) => browser.close()));
     await managedRunCommand?.stop();
   }
 
