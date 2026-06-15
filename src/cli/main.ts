@@ -9,6 +9,7 @@ import { POSSUM_CONFIG_FILENAME, resolveAuditTarget, writeStarterPossumConfig } 
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
+import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
 
 export interface CliDependencies {
   cwd: string;
@@ -55,7 +56,8 @@ export function buildProgram(deps: CliDependencies): Command {
         rootDir: deps.cwd,
         runCommand: target.runCommand,
         targetUrl: target.targetUrl,
-        now: deps.now
+        now: deps.now,
+        claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30)
       });
 
       deps.stdout(`Possum audit created ${result.runId}`);

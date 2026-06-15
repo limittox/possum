@@ -7,6 +7,7 @@ import * as z4 from "zod/v4";
 import { runAudit } from "../audit/audit.js";
 import { resolveAuditTarget } from "../config/appConfig.js";
 import { buildReplayCommand } from "../replay/replayCommand.js";
+import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
 import { createRunStore, readFinding, readReportMarkdown, readRunReport } from "../runs/runStore.js";
 
 export const POSSUM_MCP_TOOL_NAMES = [
@@ -158,7 +159,8 @@ async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencie
     rootDir,
     runCommand: target.runCommand,
     targetUrl: target.targetUrl,
-    now: dependencies.now
+    now: dependencies.now,
+    claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30)
   });
   const report = await readRunReport(createRunStore(rootDir), result.runId);
   const structuredContent = {

@@ -17,6 +17,7 @@ export interface ResolvedAuditTarget {
   targetUrl: string;
   runCommand?: string;
   models?: ResolvedModelsConfig;
+  maxStepsPerPersona?: number;
 }
 
 export function createStarterPossumConfig(): Pick<PossumConfig, "target"> {
@@ -77,7 +78,12 @@ export async function resolveAuditTarget(input: AuditTargetInput): Promise<Resol
     );
   }
 
-  return { targetUrl, runCommand, models: config?.models };
+  return {
+    targetUrl,
+    runCommand,
+    models: config?.models,
+    maxStepsPerPersona: config?.budgets?.maxStepsPerPersona
+  };
 }
 
 export function getPossumConfigPath(rootDir: string): string {
