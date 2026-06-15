@@ -1,10 +1,21 @@
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { buildProgram } from "../src/cli/main.js";
+import { buildProgram, isCliEntrypoint } from "../src/cli/main.js";
 
 describe("CLI", () => {
+  it("detects linked bin entrypoints that resolve through a symlink", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-entrypoint-"));
+    const realEntrypoint = join(root, "main.js");
+    const linkedEntrypoint = join(root, "possum");
+
+    await writeFile(realEntrypoint, "", "utf8");
+    await symlink(realEntrypoint, linkedEntrypoint);
+
+    expect(isCliEntrypoint(`file://${realEntrypoint}`, linkedEntrypoint)).toBe(true);
+  });
+
   it("runs audit and prints the run id", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-cli-"));
     const output: string[] = [];

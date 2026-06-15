@@ -1,6 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { readFile } from "node:fs/promises";
+import { realpathSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { join } from "node:path";
 import { runAudit } from "../audit/audit.js";
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
@@ -78,7 +80,15 @@ export function buildProgram(deps: CliDependencies): Command {
   return program;
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
+export function isCliEntrypoint(importMetaUrl: string, argvPath: string | undefined): boolean {
+  if (!argvPath) {
+    return false;
+  }
+
+  return realpathSync(argvPath) === realpathSync(fileURLToPath(importMetaUrl));
+}
+
+if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   await buildProgram({
     cwd: process.cwd(),
     stdout: (line) => console.log(line)
