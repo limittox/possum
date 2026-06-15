@@ -1,6 +1,7 @@
 import { ResolvedModelsConfig } from "../config/appConfig.js";
 import { ClaimModels } from "../audit/claimVerification.js";
 import { createAnthropicLlmClient } from "./anthropicClient.js";
+import { createOpenRouterLlmClient } from "./openRouterClient.js";
 import { LlmClient } from "./client.js";
 
 export interface ResolvedClaimVerification {
@@ -20,16 +21,23 @@ export function resolveClaimVerification(
     return undefined;
   }
 
-  if (models.provider !== "anthropic") {
-    throw new Error(
-      `Unsupported models.provider for claim verification: ${models.provider}. Only "anthropic" is supported.`
-    );
-  }
-
   return {
-    llm: createAnthropicLlmClient(),
+    llm: createLlmClient(models.provider),
     models: { personaModel: models.personaModel, judgeModel: models.judgeModel },
     maxSteps,
     attempts: DEFAULT_ATTEMPTS
   };
+}
+
+function createLlmClient(provider: NonNullable<ResolvedModelsConfig>["provider"]): LlmClient {
+  switch (provider) {
+    case "anthropic":
+      return createAnthropicLlmClient();
+    case "openrouter":
+      return createOpenRouterLlmClient({ title: "Possum" });
+    default:
+      throw new Error(
+        `Unsupported models.provider for claim verification: ${provider}. Supported providers: "anthropic", "openrouter".`
+      );
+  }
 }

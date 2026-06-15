@@ -101,7 +101,23 @@ Add a `models` block to `possum.config.json`:
 }
 ```
 
-Set `ANTHROPIC_API_KEY` in the environment, then run `possum audit` as usual. Possum extracts the app's homepage and README claims, triages them to the ones a customer could verify through the UI, and drives a browser agent to try to fulfil each one within the configured step budget (`budgets.maxStepsPerPersona`). A claim the agent cannot fulfil on every attempt becomes a `finding_claim_unfulfilled_*` finding with a trace and a reproducible Playwright spec, written through the same judge gate and report format as every other finding. Currently only `provider: "anthropic"` is supported.
+Set `ANTHROPIC_API_KEY` in the environment, then run `possum audit` as usual. Possum extracts the app's homepage and README claims, triages them to the ones a customer could verify through the UI, and drives a browser agent to try to fulfil each one within the configured step budget (`budgets.maxStepsPerPersona`). A claim the agent cannot fulfil on every attempt becomes a `finding_claim_unfulfilled_*` finding with a trace and a reproducible Playwright spec, written through the same judge gate and report format as every other finding.
+
+### Providers
+
+- `anthropic` — uses the Anthropic API. Set `ANTHROPIC_API_KEY`. Models are Claude model ids, e.g. `claude-opus-4-8`.
+- `openrouter` — uses [OpenRouter](https://openrouter.ai)'s OpenAI-compatible API. Set `OPENROUTER_API_KEY`. Models are OpenRouter slugs, e.g. `openai/gpt-4o` or `anthropic/claude-3.7-sonnet`.
+
+```json
+{
+  "target": { "url": "http://localhost:3000" },
+  "models": {
+    "provider": "openrouter",
+    "personaModel": "openai/gpt-4o",
+    "judgeModel": "openai/gpt-4o-mini"
+  }
+}
+```
 
 ## What It Is Not
 

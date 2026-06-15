@@ -16,7 +16,7 @@ export const PossumConfigSchema = z.object({
     .default({ maxStepsPerPersona: 30, maxMinutesPerPersona: 5 }),
   models: z
     .object({
-      provider: z.enum(["anthropic", "openai"]),
+      provider: z.enum(["anthropic", "openai", "openrouter"]),
       personaModel: z.string(),
       judgeModel: z.string().optional()
     })
