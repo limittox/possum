@@ -1,5 +1,9 @@
+import { mkdtemp, writeFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { PersonaSchema, PossumConfigSchema } from "../src/contracts/config.js";
+import { resolveAuditTarget } from "../src/config/appConfig.js";
 
 describe("PossumConfigSchema v1.1 app config", () => {
   it("accepts minimal local target config without model settings", () => {
@@ -27,5 +31,16 @@ describe("PossumConfigSchema v1.1 app config", () => {
 
   it("accepts the claims evaluation agent as a persona value", () => {
     expect(PersonaSchema.parse("claims")).toBe("claims");
+  });
+
+  it("returns the models block from config when present", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "possum-models-"));
+    await writeFile(
+      join(dir, "possum.config.json"),
+      JSON.stringify({ target: { url: "http://localhost:3000" }, models: { provider: "anthropic", personaModel: "m" } })
+    );
+
+    const resolved = await resolveAuditTarget({ rootDir: dir });
+    expect(resolved.models).toEqual({ provider: "anthropic", personaModel: "m" });
   });
 });
