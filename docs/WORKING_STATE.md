@@ -4,7 +4,7 @@ Last updated: 2026-06-14 17:39 AEST
 
 ## Goal
 
-Get v1 Possum running as a local-first customer simulator for AI-built apps with:
+Get v0.1.0 Possum running as a local-first customer simulator for AI-built apps with:
 
 - CLI commands: `audit`, `report`, `replay`, `mcp`, `doctor`
 - MCP tool surface for coding agents
@@ -291,7 +291,7 @@ Runtime artifacts were removed after smoke verification.
 
 ## Completed Slice
 
-Slice: v1 package cleanup and final smoke.
+Slice: v0.1.0 package cleanup and final smoke.
 
 Session status: implementation verified, committed, and pushed to `origin/main`.
 
@@ -374,7 +374,7 @@ node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner
 
 Expected finding: `finding_beginner_dead_end_001`.
 
-4. Continue with the next v1 slice from "Remaining v1 Work After This Slice".
+4. Continue with the next v0.1.0 slice from "Remaining v0.1.0 Work After This Slice".
 
 ## Known Environment Notes
 
@@ -400,6 +400,6 @@ sudo apt-get install -y libasound2
 
 On newer Ubuntu, use `libasound2t64`.
 
-## Remaining v1 Work After This Slice
+## Remaining v0.1.0 Work After This Slice
 
-- No known v1 blockers after the completion audit.
+- No known v0.1.0 blockers after the completion audit.

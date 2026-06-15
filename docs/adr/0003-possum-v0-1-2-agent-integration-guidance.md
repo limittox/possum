@@ -1,12 +1,12 @@
-# ADR 0003: Possum v1.2 Coding Agent Integration Guidance
+# ADR 0003: Possum v0.1.2 Coding Agent Integration Guidance
 
 Date: 2026-06-15
 Status: Accepted
-Version: v1.2 agent docs slice
+Version: v0.1.2 agent docs slice
 
 ## Context
 
-Possum v1 established the local customer-simulator core and MCP tool surface. Possum v1.1 added `possum.config.json`, so a repository can carry the app URL and optional startup command that humans and coding agents need for repeatable audits.
+Possum v0.1.0 established the local customer-simulator core and MCP tool surface. Possum v0.1.1 added `possum.config.json`, so a repository can carry the app URL and optional startup command that humans and coding agents need for repeatable audits.
 
 The next adoption gap is not another runtime primitive. It is making the intended coding-agent loop explicit enough that users can paste it into Codex, Claude Code, or a generic agent instruction file.
 
@@ -14,9 +14,9 @@ Possum should remain CLI-first and MCP-friendly. The guidance must tell agents w
 
 ## Decision
 
-Possum v1.2 will add documentation for coding-agent integration.
+Possum v0.1.2 will add documentation for coding-agent integration.
 
-Accepted v1.2 docs surface:
+Accepted v0.1.2 docs surface:
 
 - `docs/agents/codex.md` for Codex-oriented project guidance.
 - `docs/agents/claude-code.md` for Claude Code-oriented project guidance.
@@ -46,7 +46,7 @@ The CLI remains the fallback and the common denominator.
 
 Possum's product promise is strongest when coding agents use it automatically at the right moments. Runtime support alone is insufficient if agents do not know the trigger conditions or evidence loop.
 
-Documentation is the smallest useful v1.2 slice because it turns the v1.1 config contract into a repeatable workflow without adding speculative hook systems or agent-specific plugins too early.
+Documentation is the smallest useful v0.1.2 slice because it turns the v0.1.1 config contract into a repeatable workflow without adding speculative hook systems or agent-specific plugins too early.
 
 Keeping Codex, Claude Code, and generic prompt guidance separate lets each page speak in the terms users expect while sharing the same Possum behavior.
 
@@ -61,13 +61,13 @@ Positive:
 
 Tradeoffs:
 
-- The first v1.2 slice is documentation, not runtime automation.
+- The first v0.1.2 slice is documentation, not runtime automation.
 - Users still need to wire instructions into their coding-agent environment.
 - Agent behavior depends on each agent honoring project instructions.
 
 ## Verification Plan
 
-v1.2 docs should be verified by:
+v0.1.2 docs should be verified by:
 
 - Checking docs are linked from README.
 - Checking each agent doc includes when to run Possum, how to run it, how to inspect results, and how to verify fixes.

@@ -1,8 +1,8 @@
-# Possum v1.1 Config Working State
+# Possum v0.1.1 Config Working State
 
 Date: 2026-06-15
 
-ADR: `docs/adr/0002-possum-v1-1-config.md`
+ADR: `docs/adr/0002-possum-v0-1-1-config.md`
 
 ## Implemented
 

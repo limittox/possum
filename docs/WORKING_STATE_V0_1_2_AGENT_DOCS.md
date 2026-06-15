@@ -1,8 +1,8 @@
-# Possum v1.2 Agent Docs Working State
+# Possum v0.1.2 Agent Docs Working State
 
 Date: 2026-06-15
 
-ADR: `docs/adr/0003-possum-v1-2-agent-integration-guidance.md`
+ADR: `docs/adr/0003-possum-v0-1-2-agent-integration-guidance.md`
 
 ## Implemented
 

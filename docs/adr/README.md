@@ -16,6 +16,6 @@ Every completed Possum version should have an ADR that captures:
 Use monotonically increasing ADR numbers:
 
 ```text
-0001-possum-v1-local-customer-simulator.md
-0002-possum-v2-<short-topic>.md
+0001-possum-v0-1-0-local-customer-simulator.md
+0002-possum-v0-1-1-<short-topic>.md
 ```
