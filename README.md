@@ -28,7 +28,13 @@ Possum is a CLI tool with a first-class MCP server. The CLI is the durable basel
 
 Possum is designed to be called by coding agents like Claude Code and Codex after they finish a task. If an agent changes user-facing behavior and decides the work would benefit from persona-based testing, it should automatically run a local Possum audit, inspect findings, and use the repro evidence as the next repair input.
 
-That loop should look like:
+Agent setup docs:
+
+- [Codex](docs/agents/codex.md)
+- [Claude Code](docs/agents/claude-code.md)
+- [Generic coding-agent prompt](docs/agents/prompt.md)
+
+The agent loop should look like:
 
 1. Coding agent implements the requested change.
 2. Coding agent decides whether the change affects a customer-facing workflow.
