@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const PersonaSchema = z.enum(["beginner", "impatient", "hostile", "returning"]);
+export const PersonaSchema = z.enum(["beginner", "impatient", "hostile", "returning", "claims"]);
 
 export const PossumConfigSchema = z.object({
   target: z.object({
