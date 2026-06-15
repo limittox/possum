@@ -2,7 +2,7 @@
 
 Date: 2026-06-15
 Status: Accepted
-Version: v1.1 planned
+Version: v1.1 config slice
 
 ## Context
 

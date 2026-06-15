@@ -5,7 +5,7 @@ export const PersonaSchema = z.enum(["beginner", "impatient", "hostile", "return
 export const PossumConfigSchema = z.object({
   target: z.object({
     url: z.string().url(),
-    runCommand: z.string().optional()
+    command: z.string().optional()
   }),
   personas: z.array(PersonaSchema).default(["beginner", "impatient", "hostile"]),
   budgets: z
@@ -14,11 +14,13 @@ export const PossumConfigSchema = z.object({
       maxMinutesPerPersona: z.number().int().positive().default(5)
     })
     .default({ maxStepsPerPersona: 30, maxMinutesPerPersona: 5 }),
-  models: z.object({
-    provider: z.enum(["anthropic", "openai"]),
-    personaModel: z.string(),
-    judgeModel: z.string().optional()
-  })
+  models: z
+    .object({
+      provider: z.enum(["anthropic", "openai"]),
+      personaModel: z.string(),
+      judgeModel: z.string().optional()
+    })
+    .optional()
 });
 
 export type Persona = z.infer<typeof PersonaSchema>;

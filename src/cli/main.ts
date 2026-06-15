@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { Command } from "commander";
-import { readFile } from "node:fs/promises";
 import { realpathSync } from "node:fs";
-import { fileURLToPath } from "node:url";
+import { readFile } from "node:fs/promises";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { runAudit } from "../audit/audit.js";
+import { POSSUM_CONFIG_FILENAME, resolveAuditTarget, writeStarterPossumConfig } from "../config/appConfig.js";
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
@@ -22,21 +23,38 @@ export function buildProgram(deps: CliDependencies): Command {
 
   program.name("possum").description("Local customer simulator for AI-built apps.");
 
-  program.command("doctor").description("Check local dependencies needed by Possum.").action(async () => {
-    const report = await checkPlaywrightSystemDependencies({ execFile: deps.execFile });
-    deps.stdout(renderDoctorReport(report));
-  });
+  program
+    .command("doctor")
+    .description("Check local dependencies needed by Possum.")
+    .action(async () => {
+      const report = await checkPlaywrightSystemDependencies({ execFile: deps.execFile });
+      deps.stdout(renderDoctorReport(report));
+    });
+
+  program
+    .command("init")
+    .description("Create a starter possum.config.json for this app.")
+    .action(async () => {
+      const configPath = await writeStarterPossumConfig(deps.cwd);
+      deps.stdout(`Created ${POSSUM_CONFIG_FILENAME}`);
+      deps.stdout(`Config: ${configPath}`);
+    });
 
   program
     .command("audit")
-    .description("Run a local customer audit.")
-    .requiredOption("--url <url>", "Local app URL to audit")
-    .option("--command <command>", "Sandboxed command to start the local app before auditing")
-    .action(async (options: { command?: string; url: string }) => {
-      const result = await runAudit({
+    .description("Run local customer audit.")
+    .option("--url <url>", "Local app URL audit")
+    .option("--command <command>", "Sandboxed command start local app before auditing")
+    .action(async (options: { command?: string; url?: string }) => {
+      const target = await resolveAuditTarget({
         rootDir: deps.cwd,
         runCommand: options.command,
-        targetUrl: options.url,
+        targetUrl: options.url
+      });
+      const result = await runAudit({
+        rootDir: deps.cwd,
+        runCommand: target.runCommand,
+        targetUrl: target.targetUrl,
         now: deps.now
       });
 
@@ -49,7 +67,7 @@ export function buildProgram(deps: CliDependencies): Command {
 
   program
     .command("report")
-    .description("Print a local run report.")
+    .description("Print local run report.")
     .argument("<runId>", "Run id under .possum/runs")
     .action(async (runId: string) => {
       const reportPath = join(deps.cwd, ".possum", "runs", runId, "report.md");
@@ -58,8 +76,8 @@ export function buildProgram(deps: CliDependencies): Command {
 
   program
     .command("replay")
-    .description("Run the Playwright repro for a finding.")
-    .argument("<reproPath>", "Path to a generated repro.spec.ts")
+    .description("Run Playwright repro for finding.")
+    .argument("<reproPath>", "Path generated repro.spec.ts")
     .action(async (reproPath: string) => {
       const result = await runReplay({ rootDir: deps.cwd, reproPath, execFile: deps.execFile });
       if (result.stdout) {
@@ -73,7 +91,7 @@ export function buildProgram(deps: CliDependencies): Command {
       }
     });
 
-  program.command("mcp").description("Start the Possum MCP server over stdio.").action(async () => {
+  program.command("mcp").description("Start Possum MCP server over stdio.").action(async () => {
     await startPossumMcpServer({ rootDir: deps.cwd });
   });
 

@@ -1,10 +1,11 @@
-import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
+import { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { resolve } from "node:path";
 import { z } from "zod";
 import * as z4 from "zod/v4";
 import { runAudit } from "../audit/audit.js";
+import { resolveAuditTarget } from "../config/appConfig.js";
 import { buildReplayCommand } from "../replay/replayCommand.js";
 import { createRunStore, readFinding, readReportMarkdown, readRunReport } from "../runs/runStore.js";
 
@@ -39,11 +40,11 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
   server.registerTool(
     "run_audit",
     {
-      description: "Run a local Possum audit against a target URL.",
+      description: "Run local Possum audit against target URL or possum.config.json.",
       inputSchema: {
-        rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
-        runCommand: z4.string().optional().describe("Sandboxed command to start the local app before auditing."),
-        targetUrl: z4.string().url().describe("Local app URL to audit.")
+        rootDir: z4.string().optional().describe("Repository root. Defaults MCP server working directory."),
+        runCommand: z4.string().optional().describe("Sandboxed command start local app before auditing."),
+        targetUrl: z4.string().url().optional().describe("Local app URL audit. Defaults to possum.config.json.")
       }
     },
     async (args) => runPossumMcpTool("run_audit", args, dependencies)
@@ -52,9 +53,9 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
   server.registerTool(
     "list_findings",
     {
-      description: "List findings for a Possum run.",
+      description: "List findings for Possum run.",
       inputSchema: {
-        rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
+        rootDir: z4.string().optional().describe("Repository root. Defaults to MCP server working directory."),
         runId: z4.string().min(1).describe("Run id under .possum/runs.")
       }
     },
@@ -64,11 +65,11 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
   server.registerTool(
     "get_finding",
     {
-      description: "Return a single finding packet from a Possum run.",
+      description: "Return single finding packet from Possum run.",
       inputSchema: {
-        rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
+        rootDir: z4.string().optional().describe("Repository root. Defaults MCP server working directory."),
         runId: z4.string().min(1).describe("Run id under .possum/runs."),
-        findingId: z4.string().min(1).describe("Finding id to retrieve.")
+        findingId: z4.string().min(1).describe("Finding id retrieve.")
       }
     },
     async (args) => runPossumMcpTool("get_finding", args, dependencies)
@@ -77,10 +78,10 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
   server.registerTool(
     "replay_finding",
     {
-      description: "Return the Playwright replay command for a generated repro path.",
+      description: "Return Playwright replay command for generated repro path.",
       inputSchema: {
-        rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
-        reproPath: z4.string().min(1).describe("Path to a generated repro.spec.ts file.")
+        rootDir: z4.string().optional().describe("Repository root. Defaults MCP server working directory."),
+        reproPath: z4.string().min(1).describe("Path generated repro.spec.ts file.")
       }
     },
     async (args) => runPossumMcpTool("replay_finding", args, dependencies)
@@ -89,9 +90,9 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
   server.registerTool(
     "get_report",
     {
-      description: "Return the Markdown report for a Possum run.",
+      description: "Return Markdown report for Possum run.",
       inputSchema: {
-        rootDir: z4.string().optional().describe("Repository root. Defaults to the MCP server working directory."),
+        rootDir: z4.string().optional().describe("Repository root. Defaults to MCP server working directory."),
         runId: z4.string().min(1).describe("Run id under .possum/runs.")
       }
     },
@@ -109,7 +110,7 @@ export async function startPossumMcpServer(dependencies: PossumMcpDependencies =
 const RunAuditArgsSchema = z.object({
   rootDir: z.string().optional(),
   runCommand: z.string().optional(),
-  targetUrl: z.string().url()
+  targetUrl: z.string().url().optional()
 });
 
 const RunScopedArgsSchema = z.object({
@@ -148,16 +149,21 @@ export async function runPossumMcpTool(
 async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencies): Promise<CallToolResult> {
   const args = RunAuditArgsSchema.parse(rawArgs);
   const rootDir = resolveRootDir(args.rootDir, dependencies);
-  const result = await runAudit({
+  const target = await resolveAuditTarget({
     rootDir,
     runCommand: args.runCommand,
-    targetUrl: args.targetUrl,
+    targetUrl: args.targetUrl
+  });
+  const result = await runAudit({
+    rootDir,
+    runCommand: target.runCommand,
+    targetUrl: target.targetUrl,
     now: dependencies.now
   });
   const report = await readRunReport(createRunStore(rootDir), result.runId);
   const structuredContent = {
     runId: result.runId,
-    targetUrl: args.targetUrl,
+    targetUrl: target.targetUrl,
     reportMarkdownPath: result.reportMarkdownPath,
     findingsJsonPath: result.findingsJsonPath,
     surfaceJsonPath: result.surfaceJsonPath,

@@ -1,5 +1,6 @@
 export * from "./audit/audit.js";
 export * from "./audit/auditStub.js";
+export * from "./config/appConfig.js";
 export * from "./contracts/config.js";
 export * from "./contracts/findings.js";
 export * from "./contracts/surface.js";
