@@ -14,7 +14,7 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 - Stores app audit settings in `possum.config.json` with `possum init`.
 - Can start a local app for an audit from config or with `possum audit --command "npm run dev" --url http://localhost:3000`.
 - Simulates beginner, impatient, hostile, and returning customers.
-- Tests claim-vs-reality from README, homepage, and product copy.
+- Tests claim-vs-reality from README, homepage, and product copy (opt-in, when a model is configured).
 - Writes plain-file evidence under `.possum/runs/<id>`.
 - Produces screenshots, persona traces, findings JSON/Markdown, and Playwright repro scripts.
 - Filters findings through the local judge/dedupe gate so reports contain confirmed, reproduced, unique failures.
@@ -80,6 +80,28 @@ possum audit --command "npm run preview" --url http://localhost:4173
 ```
 
 Commands from config use the same sandbox as `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, or executable paths.
+
+## Claim-vs-Reality Verification
+
+When a model is configured, Possum verifies whether the running app actually delivers on the claims it makes about itself. It is fully opt-in: with no `models` block, the deterministic core behaves exactly as before and no model is called.
+
+Add a `models` block to `possum.config.json`:
+
+```json
+{
+  "target": {
+    "url": "http://localhost:3000",
+    "command": "npm run dev"
+  },
+  "models": {
+    "provider": "anthropic",
+    "personaModel": "claude-opus-4-8",
+    "judgeModel": "claude-opus-4-8"
+  }
+}
+```
+
+Set `ANTHROPIC_API_KEY` in the environment, then run `possum audit` as usual. Possum extracts the app's homepage and README claims, triages them to the ones a customer could verify through the UI, and drives a browser agent to try to fulfil each one within the configured step budget (`budgets.maxStepsPerPersona`). A claim the agent cannot fulfil on every attempt becomes a `finding_claim_unfulfilled_*` finding with a trace and a reproducible Playwright spec, written through the same judge gate and report format as every other finding. Currently only `provider: "anthropic"` is supported.
 
 ## What It Is Not
 
