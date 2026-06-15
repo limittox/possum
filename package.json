@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/test": "^1.60.0",
     "commander": "^12.1.0",
