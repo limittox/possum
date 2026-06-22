@@ -81,6 +81,8 @@ possum audit --command "npm run preview" --url http://localhost:4173
 
 Commands from config use the same sandbox as `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, or executable paths.
 
+While an audit runs, Possum prints live per-phase progress to stderr (`possum: [1/3] beginner …`, `… judge — 1/1 findings accepted`) so you can see it working. The machine-readable result lines (run id, report path, surface path) go to stdout, so `possum audit > out.txt` keeps that output clean while progress still shows in your terminal.
+
 ## Claim-vs-Reality Verification
 
 When a model is configured, Possum verifies whether the running app actually delivers on the claims it makes about itself. It is fully opt-in: with no `models` block, the deterministic core behaves exactly as before and no model is called.
