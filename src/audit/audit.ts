@@ -165,12 +165,15 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   const { accepted: acceptedFindings } = judgeFindings(findings);
   report({ type: "judge-done", accepted: acceptedFindings.length, candidates: findings.length });
 
+  const completedAt = new Date();
   const written = await writeRunReport(store, {
     runId,
     targetUrl: input.targetUrl,
     startedAt: now.toISOString(),
-    completedAt: now.toISOString(),
-    personas: ["beginner", "impatient", "hostile"],
+    completedAt: completedAt.toISOString(),
+    personas: input.claimVerification
+      ? ["beginner", "impatient", "hostile", "claims"]
+      : ["beginner", "impatient", "hostile"],
     findings: acceptedFindings
   });
 

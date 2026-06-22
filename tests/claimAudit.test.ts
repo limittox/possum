@@ -62,6 +62,7 @@ describe("runAudit with claim verification", () => {
     expect(claimFinding).toBeDefined();
     expect(claimFinding.persona).toBe("claims");
     expect(claimFinding.reproducibility).toEqual({ status: "reproduced", attempts: 2 });
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
   }, 30_000);
 
   it("does not run claim verification when models are absent", async () => {
@@ -72,6 +73,20 @@ describe("runAudit with claim verification", () => {
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
     const claimFindings = report.findings.filter((finding: { persona: string }) => finding.persona === "claims");
     expect(claimFindings).toHaveLength(0);
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile"]);
+  }, 30_000);
+
+  it("records a completion timestamp distinct from the start time", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-claim-audit-clock-"));
+    const startedAt = new Date("2020-01-01T00:00:00.000Z");
+
+    const result = await runAudit({ rootDir, targetUrl: baseUrl, now: startedAt });
+
+    const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+    expect(report.startedAt).toBe(startedAt.toISOString());
+    expect(report.completedAt).toBeDefined();
+    expect(report.completedAt).not.toBe(report.startedAt);
+    expect(new Date(report.completedAt).getTime()).toBeGreaterThan(new Date(report.startedAt).getTime());
   }, 30_000);
 
   it("reports per-phase progress events in order", async () => {
