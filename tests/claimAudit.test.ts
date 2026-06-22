@@ -73,4 +73,40 @@ describe("runAudit with claim verification", () => {
     const claimFindings = report.findings.filter((finding: { persona: string }) => finding.persona === "claims");
     expect(claimFindings).toHaveLength(0);
   }, 30_000);
+
+  it("reports per-phase progress events in order", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-claim-audit-progress-"));
+
+    const llm = new ScriptedLlmClient([
+      JSON.stringify([{ index: 0, verifiable: true, expectedBehavior: "An export-to-PDF control is reachable." }]),
+      JSON.stringify({ action: "conclude", verdict: "unfulfilled", reason: "No export control is present." }),
+      JSON.stringify({ action: "conclude", verdict: "unfulfilled", reason: "No export control is present." })
+    ]);
+
+    const events: import("../src/audit/progress.js").AuditProgressEvent[] = [];
+
+    await runAudit({
+      rootDir,
+      targetUrl: baseUrl,
+      onProgress: (event) => events.push(event),
+      claimVerification: {
+        llm,
+        models: { personaModel: "agent-model", judgeModel: "judge-model" },
+        maxSteps: 3,
+        attempts: 2
+      }
+    });
+
+    expect(events).toEqual([
+      { type: "phase-start", phase: "beginner", index: 1, total: 4 },
+      { type: "phase-done", phase: "beginner", index: 1, total: 4, findings: 0 },
+      { type: "phase-start", phase: "impatient", index: 2, total: 4 },
+      { type: "phase-done", phase: "impatient", index: 2, total: 4, findings: 0 },
+      { type: "phase-start", phase: "hostile", index: 3, total: 4 },
+      { type: "phase-done", phase: "hostile", index: 3, total: 4, findings: 0 },
+      { type: "phase-start", phase: "claims", index: 4, total: 4 },
+      { type: "phase-done", phase: "claims", index: 4, total: 4, findings: 1 },
+      { type: "judge-done", accepted: 1, candidates: 1 }
+    ]);
+  }, 30_000);
 });

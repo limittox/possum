@@ -16,6 +16,7 @@ import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
+import { AuditProgressEvent } from "./progress.js";
 
 export interface AuditClaimVerification {
   llm: LlmClient;
@@ -31,6 +32,7 @@ export interface AuditInput {
   targetUrl: string;
   now?: Date;
   claimVerification?: AuditClaimVerification;
+  onProgress?: (event: AuditProgressEvent) => void;
 }
 
 export interface AuditResult {
@@ -51,20 +53,25 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let hostileValidation: HostileProbeResult | undefined;
   let managedRunCommand: ManagedRunCommand | undefined;
   const claimBrowsers: Browser[] = [];
+  const report = input.onProgress ?? (() => {});
+  const total = 3 + (input.claimVerification ? 1 : 0);
 
   try {
     if (input.runCommand) {
+      report({ type: "app-starting", command: input.runCommand });
       managedRunCommand = await startRunCommand({
         command: input.runCommand,
         cwd: input.rootDir,
         targetUrl: input.targetUrl
       });
+      report({ type: "app-ready" });
     }
 
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
     const traceRelativePath = "personas/beginner/trace.json";
     const impatientTraceRelativePath = "personas/impatient/trace.json";
     const hostileTraceRelativePath = "personas/hostile/trace.json";
+    report({ type: "phase-start", phase: "beginner", index: 1, total });
     const surface = await probeTargetSurface({
       rootDir: input.rootDir,
       targetUrl: input.targetUrl,
@@ -78,8 +85,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
       }
     });
     surfaceJsonPath = await writeSurface(store, runId, surface);
-    findings.push(...evaluateBeginnerPersona({ runId, surface }));
+    const beginnerFindings = evaluateBeginnerPersona({ runId, surface });
+    findings.push(...beginnerFindings);
+    report({ type: "phase-done", phase: "beginner", index: 1, total, findings: beginnerFindings.length });
 
+    report({ type: "phase-start", phase: "impatient", index: 2, total });
     impatientDoubleSubmit = await probeImpatientDoubleSubmit({
       targetUrl: input.targetUrl,
       trace: {
@@ -87,8 +97,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
         relativePath: impatientTraceRelativePath
       }
     });
-    findings.push(...evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit }));
+    const impatientFindings = evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit });
+    findings.push(...impatientFindings);
+    report({ type: "phase-done", phase: "impatient", index: 2, total, findings: impatientFindings.length });
 
+    report({ type: "phase-start", phase: "hostile", index: 3, total });
     hostileValidation = await probeHostileValidation({
       targetUrl: input.targetUrl,
       trace: {
@@ -96,9 +109,13 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
         relativePath: hostileTraceRelativePath
       }
     });
-    findings.push(...evaluateHostilePersona({ runId, validation: hostileValidation }));
+    const hostileFindings = evaluateHostilePersona({ runId, validation: hostileValidation });
+    findings.push(...hostileFindings);
+    report({ type: "phase-done", phase: "hostile", index: 3, total, findings: hostileFindings.length });
 
     if (input.claimVerification) {
+      report({ type: "phase-start", phase: "claims", index: 4, total });
+      const claimFindingsBefore = findings.length;
       const verification = input.claimVerification;
       const pageFactory =
         verification.pageFactory ??
@@ -130,6 +147,13 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
           })
         );
       });
+      report({
+        type: "phase-done",
+        phase: "claims",
+        index: 4,
+        total,
+        findings: findings.length - claimFindingsBefore
+      });
     }
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
@@ -139,6 +163,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   }
 
   const { accepted: acceptedFindings } = judgeFindings(findings);
+  report({ type: "judge-done", accepted: acceptedFindings.length, candidates: findings.length });
 
   const written = await writeRunReport(store, {
     runId,
