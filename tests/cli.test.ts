@@ -30,6 +30,27 @@ describe("CLI", () => {
     expect(output.join("\n")).toContain("run_20260613_020000");
   });
 
+  it("writes audit progress to stderr and results to stdout", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-progress-"));
+    const stdout: string[] = [];
+    const stderr: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => stdout.push(line),
+      stderr: (line) => stderr.push(line),
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    await program.parseAsync(["node", "possum", "audit", "--url", "http://127.0.0.1:9"]);
+
+    // Progress lines go to stderr only.
+    expect(stderr.join("\n")).toContain("possum: [1/3] beginner");
+    expect(stderr.join("\n")).toContain("possum: judge —");
+    // Result lines go to stdout only.
+    expect(stdout.join("\n")).toContain("run_20260613_020000");
+    expect(stdout.join("\n")).not.toContain("possum: [1/3]");
+  });
+
   it("runs replay through the configured command runner", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-cli-replay-"));
     const output: string[] = [];
