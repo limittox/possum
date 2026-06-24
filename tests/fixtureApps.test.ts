@@ -5,6 +5,7 @@ import { join } from "node:path";
 import { pathToFileURL } from "node:url";
 import { afterEach, describe, expect, it } from "vitest";
 import { runAudit } from "../src/audit/audit.js";
+import { ScriptedLlmClient } from "../src/llm/scriptedClient.js";
 
 interface FixtureServer {
   listen(port: number, host: string, callback: () => void): void;
@@ -67,4 +68,26 @@ describe("fixture apps", () => {
   it("hostile-server-error fixture reproduces the hostile server-error finding", async () => {
     await expect(auditFixture("hostile-server-error")).resolves.toContain("finding_hostile_server_error_001");
   });
+
+  it("claim-unfulfilled-export fixture reproduces the claim-unfulfilled finding", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-claim-unfulfilled-fixture-"));
+    const targetUrl = await startFixture("claim-unfulfilled-export");
+    const llm = new ScriptedLlmClient([
+      JSON.stringify([{ index: 0, verifiable: true, expectedBehavior: "An export-to-PDF control is reachable." }]),
+      JSON.stringify({ action: "conclude", verdict: "unfulfilled", reason: "No export control is present." }),
+      JSON.stringify({ action: "conclude", verdict: "unfulfilled", reason: "No export control is present." })
+    ]);
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      claimVerification: { llm, models: { personaModel: "agent-model" }, maxSteps: 3, attempts: 2 }
+    });
+
+    const report = await import("node:fs/promises").then(({ readFile }) =>
+      readFile(join(result.runDir, "findings.json"), "utf8")
+    );
+    const ids = JSON.parse(report).findings.map((finding: { id: string }) => finding.id);
+    expect(ids).toContain("finding_claim_unfulfilled_001");
+  }, 30_000);
 });

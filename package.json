@@ -1,6 +1,6 @@
 {
   "name": "possum",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "description": "Open-source local customer simulator for AI-built apps.",
   "license": "Apache-2.0",
   "type": "module",
@@ -19,6 +19,7 @@
     "typecheck": "tsc -p tsconfig.json --noEmit"
   },
   "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
     "@modelcontextprotocol/sdk": "^1.0.0",
     "@playwright/test": "^1.60.0",
     "commander": "^12.1.0",

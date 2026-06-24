@@ -9,10 +9,13 @@ import { POSSUM_CONFIG_FILENAME, resolveAuditTarget, writeStarterPossumConfig } 
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
+import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
+import { formatProgressEvent } from "./auditProgress.js";
 
 export interface CliDependencies {
   cwd: string;
   stdout: (line: string) => void;
+  stderr?: (line: string) => void;
   execFile?: ReplayExecFile;
   now?: Date;
   setExitCode?: (code: number) => void;
@@ -51,11 +54,14 @@ export function buildProgram(deps: CliDependencies): Command {
         runCommand: options.command,
         targetUrl: options.url
       });
+      const emitProgress = deps.stderr;
       const result = await runAudit({
         rootDir: deps.cwd,
         runCommand: target.runCommand,
         targetUrl: target.targetUrl,
-        now: deps.now
+        now: deps.now,
+        claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30),
+        onProgress: emitProgress ? (event) => emitProgress(formatProgressEvent(event)) : undefined
       });
 
       deps.stdout(`Possum audit created ${result.runId}`);
@@ -109,6 +115,7 @@ export function isCliEntrypoint(importMetaUrl: string, argvPath: string | undefi
 if (isCliEntrypoint(import.meta.url, process.argv[1])) {
   await buildProgram({
     cwd: process.cwd(),
-    stdout: (line) => console.log(line)
+    stdout: (line) => console.log(line),
+    stderr: (line) => console.error(line)
   }).parseAsync(process.argv);
 }

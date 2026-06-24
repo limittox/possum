@@ -14,7 +14,7 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 - Stores app audit settings in `possum.config.json` with `possum init`.
 - Can start a local app for an audit from config or with `possum audit --command "npm run dev" --url http://localhost:3000`.
 - Simulates beginner, impatient, hostile, and returning customers.
-- Tests claim-vs-reality from README, homepage, and product copy.
+- Tests claim-vs-reality from README, homepage, and product copy (opt-in, when a model is configured).
 - Writes plain-file evidence under `.possum/runs/<id>`.
 - Produces screenshots, persona traces, findings JSON/Markdown, and Playwright repro scripts.
 - Filters findings through the local judge/dedupe gate so reports contain confirmed, reproduced, unique failures.
@@ -80,6 +80,46 @@ possum audit --command "npm run preview" --url http://localhost:4173
 ```
 
 Commands from config use the same sandbox as `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, or executable paths.
+
+While an audit runs, Possum prints live per-phase progress to stderr (`possum: [1/3] beginner …`, `… judge — 1/1 findings accepted`) so you can see it working. The machine-readable result lines (run id, report path, surface path) go to stdout, so `possum audit > out.txt` keeps that output clean while progress still shows in your terminal.
+
+## Claim-vs-Reality Verification
+
+When a model is configured, Possum verifies whether the running app actually delivers on the claims it makes about itself. It is fully opt-in: with no `models` block, the deterministic core behaves exactly as before and no model is called.
+
+Add a `models` block to `possum.config.json`:
+
+```json
+{
+  "target": {
+    "url": "http://localhost:3000",
+    "command": "npm run dev"
+  },
+  "models": {
+    "provider": "anthropic",
+    "personaModel": "claude-opus-4-8",
+    "judgeModel": "claude-opus-4-8"
+  }
+}
+```
+
+Set `ANTHROPIC_API_KEY` in the environment, then run `possum audit` as usual. Possum extracts the app's homepage and README claims, triages them to the ones a customer could verify through the UI, and drives a browser agent to try to fulfil each one within the configured step budget (`budgets.maxStepsPerPersona`). A claim the agent cannot fulfil on every attempt becomes a `finding_claim_unfulfilled_*` finding with a trace and a reproducible Playwright spec, written through the same judge gate and report format as every other finding.
+
+### Providers
+
+- `anthropic` — uses the Anthropic API. Set `ANTHROPIC_API_KEY`. Models are Claude model ids, e.g. `claude-opus-4-8`.
+- `openrouter` — uses [OpenRouter](https://openrouter.ai)'s OpenAI-compatible API. Set `OPENROUTER_API_KEY`. Models are OpenRouter slugs, e.g. `openai/gpt-4o` or `anthropic/claude-3.7-sonnet`.
+
+```json
+{
+  "target": { "url": "http://localhost:3000" },
+  "models": {
+    "provider": "openrouter",
+    "personaModel": "openai/gpt-4o",
+    "judgeModel": "openai/gpt-4o-mini"
+  }
+}
+```
 
 ## What It Is Not
 

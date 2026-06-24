@@ -3,6 +3,8 @@ import { dirname, join } from "node:path";
 import { ZodError } from "zod";
 import { PossumConfig, PossumConfigSchema } from "../contracts/config.js";
 
+export type ResolvedModelsConfig = PossumConfig["models"];
+
 export const POSSUM_CONFIG_FILENAME = "possum.config.json";
 
 export interface AuditTargetInput {
@@ -14,6 +16,8 @@ export interface AuditTargetInput {
 export interface ResolvedAuditTarget {
   targetUrl: string;
   runCommand?: string;
+  models?: ResolvedModelsConfig;
+  maxStepsPerPersona?: number;
 }
 
 export function createStarterPossumConfig(): Pick<PossumConfig, "target"> {
@@ -74,7 +78,12 @@ export async function resolveAuditTarget(input: AuditTargetInput): Promise<Resol
     );
   }
 
-  return { targetUrl, runCommand };
+  return {
+    targetUrl,
+    runCommand,
+    models: config?.models,
+    maxStepsPerPersona: config?.budgets?.maxStepsPerPersona
+  };
 }
 
 export function getPossumConfigPath(rootDir: string): string {

@@ -1,21 +1,38 @@
 import { join } from "node:path";
+import { Browser, chromium } from "playwright";
 import { Finding } from "../contracts/findings.js";
+import { LlmClient } from "../llm/client.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
+import { evaluateClaimsPersona } from "../personas/claims.js";
 import { evaluateHostilePersona } from "../personas/hostile.js";
 import { evaluateImpatientPersona } from "../personas/impatient.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
+import { ClaimPage } from "./claimPage.js";
+import { ClaimModels, verifyClaimsWithStability } from "./claimVerification.js";
+import { createPlaywrightClaimPage } from "./playwrightClaimPage.js";
 import { judgeFindings } from "./findingJudge.js";
 import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
+import { AuditProgressEvent } from "./progress.js";
+
+export interface AuditClaimVerification {
+  llm: LlmClient;
+  models: ClaimModels;
+  maxSteps: number;
+  attempts: number;
+  pageFactory?: () => Promise<ClaimPage>;
+}
 
 export interface AuditInput {
   rootDir: string;
   runCommand?: string;
   targetUrl: string;
   now?: Date;
+  claimVerification?: AuditClaimVerification;
+  onProgress?: (event: AuditProgressEvent) => void;
 }
 
 export interface AuditResult {
@@ -35,20 +52,26 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
   let hostileValidation: HostileProbeResult | undefined;
   let managedRunCommand: ManagedRunCommand | undefined;
+  const claimBrowsers: Browser[] = [];
+  const report = input.onProgress ?? (() => {});
+  const total = 3 + (input.claimVerification ? 1 : 0);
 
   try {
     if (input.runCommand) {
+      report({ type: "app-starting", command: input.runCommand });
       managedRunCommand = await startRunCommand({
         command: input.runCommand,
         cwd: input.rootDir,
         targetUrl: input.targetUrl
       });
+      report({ type: "app-ready" });
     }
 
     const screenshotRelativePath = "personas/beginner/screenshots/first-page.png";
     const traceRelativePath = "personas/beginner/trace.json";
     const impatientTraceRelativePath = "personas/impatient/trace.json";
     const hostileTraceRelativePath = "personas/hostile/trace.json";
+    report({ type: "phase-start", phase: "beginner", index: 1, total });
     const surface = await probeTargetSurface({
       rootDir: input.rootDir,
       targetUrl: input.targetUrl,
@@ -62,8 +85,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
       }
     });
     surfaceJsonPath = await writeSurface(store, runId, surface);
-    findings.push(...evaluateBeginnerPersona({ runId, surface }));
+    const beginnerFindings = evaluateBeginnerPersona({ runId, surface });
+    findings.push(...beginnerFindings);
+    report({ type: "phase-done", phase: "beginner", index: 1, total, findings: beginnerFindings.length });
 
+    report({ type: "phase-start", phase: "impatient", index: 2, total });
     impatientDoubleSubmit = await probeImpatientDoubleSubmit({
       targetUrl: input.targetUrl,
       trace: {
@@ -71,8 +97,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
         relativePath: impatientTraceRelativePath
       }
     });
-    findings.push(...evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit }));
+    const impatientFindings = evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit });
+    findings.push(...impatientFindings);
+    report({ type: "phase-done", phase: "impatient", index: 2, total, findings: impatientFindings.length });
 
+    report({ type: "phase-start", phase: "hostile", index: 3, total });
     hostileValidation = await probeHostileValidation({
       targetUrl: input.targetUrl,
       trace: {
@@ -80,21 +109,71 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
         relativePath: hostileTraceRelativePath
       }
     });
-    findings.push(...evaluateHostilePersona({ runId, validation: hostileValidation }));
+    const hostileFindings = evaluateHostilePersona({ runId, validation: hostileValidation });
+    findings.push(...hostileFindings);
+    report({ type: "phase-done", phase: "hostile", index: 3, total, findings: hostileFindings.length });
+
+    if (input.claimVerification) {
+      report({ type: "phase-start", phase: "claims", index: 4, total });
+      const claimFindingsBefore = findings.length;
+      const verification = input.claimVerification;
+      const pageFactory =
+        verification.pageFactory ??
+        (async () => {
+          const browser = await chromium.launch();
+          claimBrowsers.push(browser);
+          const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+          await page.goto(input.targetUrl, { waitUntil: "domcontentloaded", timeout: 5000 });
+          return createPlaywrightClaimPage(page);
+        });
+
+      const confirmed = await verifyClaimsWithStability({
+        claims: surface.claims ?? [],
+        pageFactory,
+        llm: verification.llm,
+        models: verification.models,
+        maxSteps: verification.maxSteps,
+        attempts: verification.attempts
+      });
+
+      confirmed.forEach((entry, index) => {
+        findings.push(
+          ...evaluateClaimsPersona({
+            runId,
+            index,
+            result: entry.result,
+            finalUrl: surface.finalUrl,
+            reproducibility: entry.reproducibility
+          })
+        );
+      });
+      report({
+        type: "phase-done",
+        phase: "claims",
+        index: 4,
+        total,
+        findings: findings.length - claimFindingsBefore
+      });
+    }
   } catch (error) {
     findings.push(createAccessFinding(runId, input.targetUrl, error));
   } finally {
+    await Promise.all(claimBrowsers.map((browser) => browser.close()));
     await managedRunCommand?.stop();
   }
 
   const { accepted: acceptedFindings } = judgeFindings(findings);
+  report({ type: "judge-done", accepted: acceptedFindings.length, candidates: findings.length });
 
+  const completedAt = new Date();
   const written = await writeRunReport(store, {
     runId,
     targetUrl: input.targetUrl,
     startedAt: now.toISOString(),
-    completedAt: now.toISOString(),
-    personas: ["beginner", "impatient", "hostile"],
+    completedAt: completedAt.toISOString(),
+    personas: input.claimVerification
+      ? ["beginner", "impatient", "hostile", "claims"]
+      : ["beginner", "impatient", "hostile"],
     findings: acceptedFindings
   });
 
