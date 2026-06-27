@@ -1,9 +1,10 @@
 import { z } from "zod";
 import { ClaimObservation, ClaimPage } from "./claimPage.js";
+import { AuditProgressReporter } from "./progress.js";
 import { TriagedClaim } from "./claimTriage.js";
 import { LlmClient } from "../llm/client.js";
 
-export type ClaimVerdict = "fulfilled" | "unfulfilled";
+export type ClaimVerdict = "fulfilled" | "unfulfilled" | "inconclusive";
 
 export interface ClaimStep {
   action: "observe" | "click" | "conclude";
@@ -24,6 +25,15 @@ export interface VerifyClaimInput {
   llm: LlmClient;
   model: string;
   maxSteps: number;
+  deadline: number;
+  now?: () => number;
+  progress?: {
+    index: number;
+    total: number;
+    attempt: number;
+    attempts: number;
+    onProgress: AuditProgressReporter;
+  };
 }
 
 const ActionSchema = z.union([
@@ -43,31 +53,54 @@ const SYSTEM_PROMPT =
 
 export async function verifyClaim(input: VerifyClaimInput): Promise<ClaimVerificationResult> {
   const steps: ClaimStep[] = [];
+  const now = input.now ?? Date.now;
 
   for (let stepCount = 0; stepCount < input.maxSteps; stepCount += 1) {
-    const observation = await input.page.observe();
-    steps.push({ action: "observe", url: observation.url, title: observation.title });
+    if (now() >= input.deadline) {
+      const reason = "wall-clock budget reached";
+      steps.push({ action: "conclude", verdict: "inconclusive", reason });
+      return result(input, steps, "inconclusive", reason);
+    }
 
-    const response = await input.llm.complete({
-      model: input.model,
-      system: SYSTEM_PROMPT,
-      prompt: buildPrompt(input.triaged, observation)
+    input.progress?.onProgress({
+      type: "claim-step",
+      index: input.progress.index,
+      total: input.progress.total,
+      attempt: input.progress.attempt,
+      attempts: input.progress.attempts,
+      step: stepCount + 1,
+      maxSteps: input.maxSteps
     });
 
-    const action = parseAction(response.text);
-    if (!action) {
-      const reason = "Unparseable agent action.";
-      steps.push({ action: "conclude", verdict: "unfulfilled", reason });
-      return result(input, steps, "unfulfilled", reason);
-    }
+    try {
+      const observation = await input.page.observe();
+      steps.push({ action: "observe", url: observation.url, title: observation.title });
 
-    if (action.action === "conclude") {
-      steps.push({ action: "conclude", verdict: action.verdict, reason: action.reason });
-      return result(input, steps, action.verdict, action.reason);
-    }
+      const response = await input.llm.complete({
+        model: input.model,
+        system: SYSTEM_PROMPT,
+        prompt: buildPrompt(input.triaged, observation)
+      });
 
-    steps.push({ action: "click", text: action.text });
-    await input.page.clickText(action.text);
+      const action = parseAction(response.text);
+      if (!action) {
+        const reason = "Unparseable agent action.";
+        steps.push({ action: "conclude", verdict: "unfulfilled", reason });
+        return result(input, steps, "unfulfilled", reason);
+      }
+
+      if (action.action === "conclude") {
+        steps.push({ action: "conclude", verdict: action.verdict, reason: action.reason });
+        return result(input, steps, action.verdict, action.reason);
+      }
+
+      steps.push({ action: "click", text: action.text });
+      await input.page.clickText(action.text);
+    } catch (error) {
+      const reason = error instanceof Error ? error.message : String(error);
+      steps.push({ action: "conclude", verdict: "inconclusive", reason });
+      return result(input, steps, "inconclusive", reason);
+    }
   }
 
   const reason = `Agent exhausted ${input.maxSteps} steps (budget) without fulfilling the claim.`;
