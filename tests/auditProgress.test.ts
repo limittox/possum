@@ -53,4 +53,50 @@ describe("formatProgressEvent", () => {
       "possum: judge — no findings"
     );
   });
+
+  it("formats claim-start with truncated claim label", () => {
+    expect(
+      formatProgressEvent({
+        type: "claim-start",
+        index: 1,
+        total: 3,
+        claim: "See an estimate, right now, without waiting for a sales person to call back"
+      })
+    ).toBe('possum: claim 1/3 — "See an estimate, right now, without waiting for a sales..."');
+  });
+
+  it("formats claim-step heartbeat", () => {
+    expect(
+      formatProgressEvent({
+        type: "claim-step",
+        index: 1,
+        total: 3,
+        attempt: 1,
+        attempts: 2,
+        step: 4,
+        maxSteps: 30
+      })
+    ).toBe("possum: claim 1/3 · attempt 1/2 · step 4/30...");
+  });
+
+  it("formats claim-done verdict", () => {
+    expect(
+      formatProgressEvent({
+        type: "claim-done",
+        index: 1,
+        total: 3,
+        verdict: "inconclusive"
+      })
+    ).toBe("possum: claim 1/3 — inconclusive");
+  });
+
+  it("formats claims-truncated budget line", () => {
+    expect(
+      formatProgressEvent({
+        type: "claims-truncated",
+        processed: 2,
+        total: 3
+      })
+    ).toBe("possum: claims — budget reached, verified 2/3 claims");
+  });
 });

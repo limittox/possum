@@ -21,6 +21,14 @@ export function formatProgressEvent(event: AuditProgressEvent): string {
       return event.candidates === 0
         ? "possum: judge — no findings"
         : `possum: judge — ${event.accepted}/${event.candidates} findings accepted`;
+    case "claim-start":
+      return `possum: claim ${event.index}/${event.total} — "${formatClaimLabel(event.claim)}"`;
+    case "claim-step":
+      return `possum: claim ${event.index}/${event.total} · attempt ${event.attempt}/${event.attempts} · step ${event.step}/${event.maxSteps}...`;
+    case "claim-done":
+      return `possum: claim ${event.index}/${event.total} — ${event.verdict}`;
+    case "claims-truncated":
+      return `possum: claims — budget reached, verified ${event.processed}/${event.total} claims`;
   }
 }
 
@@ -32,4 +40,12 @@ function formatOutcome(findings: number): string {
     return "1 finding";
   }
   return `${findings} findings`;
+}
+
+function formatClaimLabel(claim: string): string {
+  const compact = claim.replace(/\s+/gu, " ").trim();
+  if (compact.length <= 58) {
+    return compact;
+  }
+  return `${compact.slice(0, 55)}...`;
 }
