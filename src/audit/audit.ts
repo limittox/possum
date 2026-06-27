@@ -23,6 +23,7 @@ export interface AuditClaimVerification {
   models: ClaimModels;
   maxSteps: number;
   attempts: number;
+  budgetMs: number;
   pageFactory?: () => Promise<ClaimPage>;
 }
 
@@ -127,16 +128,18 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
           return createPlaywrightClaimPage(page);
         });
 
-      const confirmed = await verifyClaimsWithStability({
+      const summary = await verifyClaimsWithStability({
         claims: surface.claims ?? [],
         pageFactory,
         llm: verification.llm,
         models: verification.models,
         maxSteps: verification.maxSteps,
-        attempts: verification.attempts
+        attempts: verification.attempts,
+        budgetMs: verification.budgetMs,
+        onProgress: input.onProgress
       });
 
-      confirmed.forEach((entry, index) => {
+      summary.confirmed.forEach((entry, index) => {
         findings.push(
           ...evaluateClaimsPersona({
             runId,

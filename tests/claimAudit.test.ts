@@ -50,7 +50,8 @@ describe("runAudit with claim verification", () => {
         llm,
         models: { personaModel: "agent-model", judgeModel: "judge-model" },
         maxSteps: 3,
-        attempts: 2
+        attempts: 2,
+        budgetMs: 60_000
       }
     });
 
@@ -108,7 +109,8 @@ describe("runAudit with claim verification", () => {
         llm,
         models: { personaModel: "agent-model", judgeModel: "judge-model" },
         maxSteps: 3,
-        attempts: 2
+        attempts: 2,
+        budgetMs: 60_000
       }
     });
 
@@ -120,8 +122,45 @@ describe("runAudit with claim verification", () => {
       { type: "phase-start", phase: "hostile", index: 3, total: 4 },
       { type: "phase-done", phase: "hostile", index: 3, total: 4, findings: 0 },
       { type: "phase-start", phase: "claims", index: 4, total: 4 },
+      { type: "claim-start", index: 1, total: 1, claim: "Export your report as PDF" },
+      { type: "claim-step", index: 1, total: 1, attempt: 1, attempts: 2, step: 1, maxSteps: 3 },
+      { type: "claim-step", index: 1, total: 1, attempt: 2, attempts: 2, step: 1, maxSteps: 3 },
+      { type: "claim-done", index: 1, total: 1, verdict: "unfulfilled" },
       { type: "phase-done", phase: "claims", index: 4, total: 4, findings: 1 },
       { type: "judge-done", accepted: 1, candidates: 1 }
     ]);
+  }, 30_000);
+
+  it("completes audit without claim finding when claim verification is inconclusive", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-claim-audit-inconclusive-"));
+    const llm = new ScriptedLlmClient([
+      JSON.stringify([{ index: 0, verifiable: true, expectedBehavior: "An export-to-PDF control is reachable." }])
+    ]);
+    const throwingLlm = {
+      requests: llm.requests,
+      async complete(request: Parameters<typeof llm.complete>[0]) {
+        if (request.model === "judge-model") {
+          return llm.complete(request);
+        }
+        throw new Error("provider timed out");
+      }
+    };
+
+    const result = await runAudit({
+      rootDir,
+      targetUrl: baseUrl,
+      claimVerification: {
+        llm: throwingLlm,
+        models: { personaModel: "agent-model", judgeModel: "judge-model" },
+        maxSteps: 3,
+        attempts: 2,
+        budgetMs: 60_000
+      }
+    });
+
+    const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
+    expect(report.findings.some((finding: { persona: string }) => finding.persona === "claims")).toBe(false);
   }, 30_000);
 });

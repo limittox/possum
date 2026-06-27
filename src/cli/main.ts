@@ -55,12 +55,17 @@ export function buildProgram(deps: CliDependencies): Command {
         targetUrl: options.url
       });
       const emitProgress = deps.stderr;
+      const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
+      const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
       const result = await runAudit({
         rootDir: deps.cwd,
         runCommand: target.runCommand,
         targetUrl: target.targetUrl,
         now: deps.now,
-        claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30),
+        claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
+          requestTimeoutMs,
+          budgetMs
+        }),
         onProgress: emitProgress ? (event) => emitProgress(formatProgressEvent(event)) : undefined
       });
 

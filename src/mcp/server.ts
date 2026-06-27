@@ -155,12 +155,17 @@ async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencie
     runCommand: args.runCommand,
     targetUrl: args.targetUrl
   });
+  const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
+  const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
   const result = await runAudit({
     rootDir,
     runCommand: target.runCommand,
     targetUrl: target.targetUrl,
     now: dependencies.now,
-    claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30)
+    claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
+      requestTimeoutMs,
+      budgetMs
+    })
   });
   const report = await readRunReport(createRunStore(rootDir), result.runId);
   const structuredContent = {
