@@ -18,6 +18,8 @@ export interface ResolvedAuditTarget {
   runCommand?: string;
   models?: ResolvedModelsConfig;
   maxStepsPerPersona?: number;
+  maxMinutesPerPersona?: number;
+  requestTimeoutSeconds?: number;
 }
 
 export function createStarterPossumConfig(): Pick<PossumConfig, "target"> {
@@ -82,7 +84,9 @@ export async function resolveAuditTarget(input: AuditTargetInput): Promise<Resol
     targetUrl,
     runCommand,
     models: config?.models,
-    maxStepsPerPersona: config?.budgets?.maxStepsPerPersona
+    maxStepsPerPersona: config?.budgets?.maxStepsPerPersona,
+    maxMinutesPerPersona: config?.budgets?.maxMinutesPerPersona,
+    requestTimeoutSeconds: config?.budgets?.requestTimeoutSeconds
   };
 }
 

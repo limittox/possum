@@ -11,9 +11,10 @@ export const PossumConfigSchema = z.object({
   budgets: z
     .object({
       maxStepsPerPersona: z.number().int().positive().default(30),
-      maxMinutesPerPersona: z.number().int().positive().default(5)
+      maxMinutesPerPersona: z.number().int().positive().default(5),
+      requestTimeoutSeconds: z.number().int().positive().default(60)
     })
-    .default({ maxStepsPerPersona: 30, maxMinutesPerPersona: 5 }),
+    .default({ maxStepsPerPersona: 30, maxMinutesPerPersona: 5, requestTimeoutSeconds: 60 }),
   models: z
     .object({
       provider: z.enum(["anthropic", "openai", "openrouter"]),

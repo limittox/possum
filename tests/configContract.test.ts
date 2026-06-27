@@ -43,4 +43,56 @@ describe("PossumConfigSchema v1.1 app config", () => {
     const resolved = await resolveAuditTarget({ rootDir: dir });
     expect(resolved.models).toEqual({ provider: "anthropic", personaModel: "m" });
   });
+
+  it("defaults request timeout and persona wall-clock budgets", () => {
+    const parsed = PossumConfigSchema.parse({
+      target: { url: "http://localhost:3000" }
+    });
+
+    expect(parsed.budgets).toEqual({
+      maxStepsPerPersona: 30,
+      maxMinutesPerPersona: 5,
+      requestTimeoutSeconds: 60
+    });
+  });
+
+  it("accepts request timeout budget override", () => {
+    const parsed = PossumConfigSchema.parse({
+      target: { url: "http://localhost:3000" },
+      budgets: {
+        maxStepsPerPersona: 12,
+        maxMinutesPerPersona: 2,
+        requestTimeoutSeconds: 7
+      }
+    });
+
+    expect(parsed.budgets).toEqual({
+      maxStepsPerPersona: 12,
+      maxMinutesPerPersona: 2,
+      requestTimeoutSeconds: 7
+    });
+  });
+
+  it("resolves claim timeout and wall-clock budgets from config", async () => {
+    const dir = await mkdtemp(join(tmpdir(), "possum-budget-config-"));
+    await writeFile(
+      join(dir, "possum.config.json"),
+      JSON.stringify({
+        target: { url: "http://localhost:3000" },
+        budgets: {
+          maxStepsPerPersona: 11,
+          maxMinutesPerPersona: 3,
+          requestTimeoutSeconds: 9
+        },
+        models: { provider: "openrouter", personaModel: "openai/gpt-4o" }
+      }),
+      "utf8"
+    );
+
+    const resolved = await resolveAuditTarget({ rootDir: dir });
+
+    expect(resolved.maxStepsPerPersona).toBe(11);
+    expect(resolved.maxMinutesPerPersona).toBe(3);
+    expect(resolved.requestTimeoutSeconds).toBe(9);
+  });
 });

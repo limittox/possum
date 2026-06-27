@@ -4,32 +4,40 @@ import { createAnthropicLlmClient } from "./anthropicClient.js";
 import { createOpenRouterLlmClient } from "./openRouterClient.js";
 import { LlmClient } from "./client.js";
 
+export interface ResolveClaimVerificationOptions {
+  requestTimeoutMs: number;
+  budgetMs: number;
+}
+
 export interface ResolvedClaimVerification {
   llm: LlmClient;
   models: ClaimModels;
   maxSteps: number;
   attempts: number;
+  budgetMs: number;
 }
 
 const DEFAULT_ATTEMPTS = 2;
 
 export function resolveClaimVerification(
   models: ResolvedModelsConfig,
-  maxSteps: number
+  maxSteps: number,
+  options: ResolveClaimVerificationOptions
 ): ResolvedClaimVerification | undefined {
   if (!models) {
     return undefined;
   }
 
   return {
-    llm: createLlmClient(models.provider),
+    llm: createLlmClient(models.provider, options.requestTimeoutMs),
     models: { personaModel: models.personaModel, judgeModel: models.judgeModel },
     maxSteps,
-    attempts: DEFAULT_ATTEMPTS
+    attempts: DEFAULT_ATTEMPTS,
+    budgetMs: options.budgetMs
   };
 }
 
-function createLlmClient(provider: NonNullable<ResolvedModelsConfig>["provider"]): LlmClient {
+function createLlmClient(provider: NonNullable<ResolvedModelsConfig>["provider"], _timeoutMs: number): LlmClient {
   switch (provider) {
     case "anthropic":
       return createAnthropicLlmClient();
