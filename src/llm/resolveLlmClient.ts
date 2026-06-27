@@ -37,12 +37,12 @@ export function resolveClaimVerification(
   };
 }
 
-function createLlmClient(provider: NonNullable<ResolvedModelsConfig>["provider"], _timeoutMs: number): LlmClient {
+function createLlmClient(provider: NonNullable<ResolvedModelsConfig>["provider"], timeoutMs: number): LlmClient {
   switch (provider) {
     case "anthropic":
-      return createAnthropicLlmClient();
+      return createAnthropicLlmClient({ timeoutMs });
     case "openrouter":
-      return createOpenRouterLlmClient({ title: "Possum" });
+      return createOpenRouterLlmClient({ title: "Possum", timeoutMs });
     default:
       throw new Error(
         `Unsupported models.provider for claim verification: ${provider}. Supported providers: "anthropic", "openrouter".`

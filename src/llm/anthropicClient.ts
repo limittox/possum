@@ -1,13 +1,17 @@
 import { LlmClient, LlmCompletionRequest, LlmCompletionResponse } from "./client.js";
+import { isAbortError, LlmTimeoutError } from "./errors.js";
 
 interface AnthropicLike {
   messages: {
-    create(params: {
-      model: string;
-      max_tokens: number;
-      system?: string;
-      messages: Array<{ role: "user"; content: string }>;
-    }): Promise<{ content: Array<{ type: string; text?: string }> }>;
+    create(
+      params: {
+        model: string;
+        max_tokens: number;
+        system?: string;
+        messages: Array<{ role: "user"; content: string }>;
+      },
+      options?: { signal?: AbortSignal }
+    ): Promise<{ content: Array<{ type: string; text?: string }> }>;
   };
 }
 
@@ -18,6 +22,7 @@ export interface AnthropicClientOptions {
   /** Inject a pre-built SDK (used in tests); when omitted the real SDK is imported lazily. */
   sdk?: AnthropicLike;
   maxTokens?: number;
+  timeoutMs?: number;
 }
 
 export function createAnthropicLlmClient(options: AnthropicClientOptions = {}): LlmClient {
@@ -41,12 +46,24 @@ export function createAnthropicLlmClient(options: AnthropicClientOptions = {}): 
   return {
     async complete(request: LlmCompletionRequest): Promise<LlmCompletionResponse> {
       const sdk = await getSdk();
-      const message = await sdk.messages.create({
-        model: request.model,
-        max_tokens: request.maxTokens ?? options.maxTokens ?? 1024,
-        system: request.system,
-        messages: [{ role: "user", content: request.prompt }]
-      });
+      const signal = options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined;
+      let message: { content: Array<{ type: string; text?: string }> };
+      try {
+        message = await sdk.messages.create(
+          {
+            model: request.model,
+            max_tokens: request.maxTokens ?? options.maxTokens ?? 1024,
+            system: request.system,
+            messages: [{ role: "user", content: request.prompt }]
+          },
+          signal ? { signal } : undefined
+        );
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw new LlmTimeoutError();
+        }
+        throw error;
+      }
       const text = message.content
         .filter((block) => block.type === "text" && typeof block.text === "string")
         .map((block) => block.text ?? "")

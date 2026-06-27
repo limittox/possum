@@ -47,6 +47,45 @@ describe("resolveClaimVerification", () => {
     expect(resolved?.attempts).toBe(2);
   });
 
+  it("passes request timeout to the provider client", async () => {
+    const previousApiKey = process.env.OPENROUTER_API_KEY;
+    const previousFetch = globalThis.fetch;
+    const calls: Array<{ signal?: AbortSignal }> = [];
+    process.env.OPENROUTER_API_KEY = "key-123";
+    (globalThis as { fetch: unknown }).fetch = async (_url: unknown, init: unknown) => {
+      calls.push(init as { signal?: AbortSignal });
+      return {
+        ok: true,
+        status: 200,
+        async text() {
+          return "";
+        },
+        async json() {
+          return { choices: [{ message: { content: "ok" } }] };
+        }
+      };
+    };
+
+    try {
+      const resolved = resolveClaimVerification(
+        { provider: "openrouter", personaModel: "openai/gpt-4o" },
+        25,
+        { requestTimeoutMs: 7_000, budgetMs: 120_000 }
+      );
+
+      await resolved?.llm.complete({ model: "openai/gpt-4o", prompt: "hi" });
+
+      expect(calls[0].signal).toBeInstanceOf(AbortSignal);
+    } finally {
+      (globalThis as { fetch: unknown }).fetch = previousFetch;
+      if (previousApiKey === undefined) {
+        delete process.env.OPENROUTER_API_KEY;
+      } else {
+        process.env.OPENROUTER_API_KEY = previousApiKey;
+      }
+    }
+  });
+
   it("throws for an unsupported provider", () => {
     expect(() => resolveClaimVerification({ provider: "openai", personaModel: "m" }, 30, defaultOptions)).toThrow(
       /Unsupported models.provider/
