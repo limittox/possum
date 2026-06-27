@@ -81,7 +81,7 @@ describe("fixture apps", () => {
     const result = await runAudit({
       rootDir: root,
       targetUrl,
-      claimVerification: { llm, models: { personaModel: "agent-model" }, maxSteps: 3, attempts: 2 }
+      claimVerification: { llm, models: { personaModel: "agent-model" }, maxSteps: 3, attempts: 2, budgetMs: 60_000 }
     });
 
     const report = await import("node:fs/promises").then(({ readFile }) =>
