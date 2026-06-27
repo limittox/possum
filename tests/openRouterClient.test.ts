@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { LlmTimeoutError } from "../src/llm/errors.js";
 import { createOpenRouterLlmClient, FetchLike } from "../src/llm/openRouterClient.js";
 
 function okFetch(body: unknown): { fetchImpl: FetchLike; calls: Array<{ url: string; init: Parameters<FetchLike>[1] }> } {
@@ -57,5 +58,37 @@ describe("createOpenRouterLlmClient", () => {
         process.env.OPENROUTER_API_KEY = previous;
       }
     }
+  });
+
+  it("passes abort signal when timeout is configured", async () => {
+    const { fetchImpl, calls } = okFetch({ choices: [{ message: { content: "hello" } }] });
+    const client = createOpenRouterLlmClient({
+      apiKey: "key-123",
+      fetchImpl,
+      timeoutMs: 50
+    });
+
+    await client.complete({ model: "openai/gpt-4o", prompt: "hi" });
+
+    expect(calls[0].init.signal).toBeInstanceOf(AbortSignal);
+  });
+
+  it("maps abort failures to LlmTimeoutError", async () => {
+    const fetchImpl: FetchLike = async (_url, init) => {
+      await new Promise((_resolve, reject) => {
+        init.signal?.addEventListener("abort", () => {
+          reject(new DOMException("The operation was aborted.", "AbortError"));
+        });
+      });
+      throw new Error("unreachable");
+    };
+
+    const client = createOpenRouterLlmClient({
+      apiKey: "key-123",
+      fetchImpl,
+      timeoutMs: 1
+    });
+
+    await expect(client.complete({ model: "openai/gpt-4o", prompt: "hi" })).rejects.toBeInstanceOf(LlmTimeoutError);
   });
 });

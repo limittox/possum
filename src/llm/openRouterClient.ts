@@ -1,4 +1,5 @@
 import { LlmClient, LlmCompletionRequest, LlmCompletionResponse } from "./client.js";
+import { isAbortError, LlmTimeoutError } from "./errors.js";
 
 interface FetchResponseLike {
   ok: boolean;
@@ -9,7 +10,7 @@ interface FetchResponseLike {
 
 export type FetchLike = (
   url: string,
-  init: { method: string; headers: Record<string, string>; body: string }
+  init: { method: string; headers: Record<string, string>; body: string; signal?: AbortSignal }
 ) => Promise<FetchResponseLike>;
 
 export interface OpenRouterClientOptions {
@@ -17,6 +18,7 @@ export interface OpenRouterClientOptions {
   baseUrl?: string;
   fetchImpl?: FetchLike;
   maxTokens?: number;
+  timeoutMs?: number;
   /** Optional attribution headers surfaced on OpenRouter leaderboards. */
   referer?: string;
   title?: string;
@@ -51,15 +53,24 @@ export function createOpenRouterLlmClient(options: OpenRouterClientOptions = {})
         headers["x-title"] = options.title;
       }
 
-      const response = await fetchImpl(`${options.baseUrl ?? DEFAULT_BASE_URL}/chat/completions`, {
-        method: "POST",
-        headers,
-        body: JSON.stringify({
-          model: request.model,
-          max_tokens: request.maxTokens ?? options.maxTokens ?? 1024,
-          messages
-        })
-      });
+      let response: FetchResponseLike;
+      try {
+        response = await fetchImpl(`${options.baseUrl ?? DEFAULT_BASE_URL}/chat/completions`, {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            model: request.model,
+            max_tokens: request.maxTokens ?? options.maxTokens ?? 1024,
+            messages
+          }),
+          signal: options.timeoutMs ? AbortSignal.timeout(options.timeoutMs) : undefined
+        });
+      } catch (error) {
+        if (isAbortError(error)) {
+          throw new LlmTimeoutError();
+        }
+        throw error;
+      }
 
       if (!response.ok) {
         throw new Error(`OpenRouter request failed with HTTP ${response.status}: ${await response.text()}`);
