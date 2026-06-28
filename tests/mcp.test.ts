@@ -7,6 +7,7 @@ describe("Possum MCP server", () => {
       "run_audit",
       "verify_app",
       "verify_feature",
+      "verify_diff",
       "list_findings",
       "get_finding",
       "replay_finding",

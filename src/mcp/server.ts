@@ -7,10 +7,12 @@ import * as z4 from "zod/v4";
 import { runAudit } from "../audit/audit.js";
 import { ResolvedAuditTarget, resolveAuditTarget } from "../config/appConfig.js";
 import { buildReplayCommand } from "../replay/replayCommand.js";
+import { collectGitDiff } from "../diff/gitDiff.js";
 import { LlmClient } from "../llm/client.js";
 import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
-import { createRunStore, readFinding, readReportMarkdown, readRunReport } from "../runs/runStore.js";
+import { createRunStore, readFinding, readReportMarkdown, readRunReport, writeJsonArtifact } from "../runs/runStore.js";
 import { verifyApp } from "../verification/appVerification.js";
+import { inferFeatureBriefFromDiff } from "../verification/diffInference.js";
 import {
   FeatureVerificationResult,
   runFeatureVerification,
@@ -22,6 +24,7 @@ export const POSSUM_MCP_TOOL_NAMES = [
   "run_audit",
   "verify_app",
   "verify_feature",
+  "verify_diff",
   "list_findings",
   "get_finding",
   "replay_finding",
@@ -42,12 +45,16 @@ interface ResolvedFeatureVerificationMcpConfig {
 }
 
 type VerifyFeatureImpl = (input: RunFeatureVerificationInput) => Promise<FeatureVerificationResult>;
+type CollectGitDiffImpl = typeof collectGitDiff;
+type InferFeatureBriefFromDiffImpl = typeof inferFeatureBriefFromDiff;
 
 export interface PossumMcpDependencies {
   rootDir?: string;
   now?: Date;
   verifyFeatureImpl?: VerifyFeatureImpl;
   verifyAppImpl?: typeof verifyApp;
+  collectGitDiffImpl?: CollectGitDiffImpl;
+  inferFeatureBriefFromDiffImpl?: InferFeatureBriefFromDiffImpl;
   resolveFeatureVerification?: (target: ResolvedAuditTarget) => ResolvedFeatureVerificationMcpConfig;
 }
 
@@ -110,6 +117,20 @@ export function createPossumMcpServer(dependencies: PossumMcpDependencies = {}):
       }
     },
     async (args) => runPossumMcpTool("verify_feature", args, dependencies)
+  );
+
+  server.registerTool(
+    "verify_diff",
+    {
+      description: "Infer a feature brief from git diff and verify it in the browser.",
+      inputSchema: {
+        rootDir: z4.string().optional().describe("Repository root. Defaults MCP server working directory."),
+        runCommand: z4.string().optional().describe("Sandboxed command to start local app before verifying."),
+        targetUrl: z4.string().url().optional().describe("Local app URL. Defaults to possum.config.json."),
+        base: z4.string().optional().describe("Base ref to compare against instead of auto-detecting a diff.")
+      }
+    },
+    async (args) => runPossumMcpTool("verify_diff", args, dependencies)
   );
 
   server.registerTool(
@@ -182,6 +203,13 @@ const VerifyFeatureArgsSchema = z.object({
   brief: FeatureVerificationBriefSchema
 });
 
+const VerifyDiffArgsSchema = z.object({
+  rootDir: z.string().optional(),
+  runCommand: z.string().optional(),
+  targetUrl: z.string().url().optional(),
+  base: z.string().optional()
+});
+
 const RunScopedArgsSchema = z.object({
   rootDir: z.string().optional(),
   runId: z.string().min(1)
@@ -208,6 +236,8 @@ export async function runPossumMcpTool(
       return verifyAppTool(rawArgs, dependencies);
     case "verify_feature":
       return verifyFeatureTool(rawArgs, dependencies);
+    case "verify_diff":
+      return verifyDiffTool(rawArgs, dependencies);
     case "list_findings":
       return listFindingsTool(rawArgs, dependencies);
     case "get_finding":
@@ -304,6 +334,40 @@ async function verifyFeatureTool(rawArgs: unknown, dependencies: PossumMcpDepend
   });
 }
 
+async function verifyDiffTool(rawArgs: unknown, dependencies: PossumMcpDependencies): Promise<CallToolResult> {
+  const args = VerifyDiffArgsSchema.parse(rawArgs);
+  const rootDir = resolveRootDir(args.rootDir, dependencies);
+  const target = await resolveAuditTarget({ rootDir, runCommand: args.runCommand, targetUrl: args.targetUrl });
+  const resolved = (dependencies.resolveFeatureVerification ?? ((resolvedTarget) =>
+    resolveFeatureVerificationFromTarget(resolvedTarget, "Diff verification requires models in possum.config.json.")))(target);
+  const diff = await (dependencies.collectGitDiffImpl ?? collectGitDiff)({ rootDir, base: args.base });
+  const brief = await (dependencies.inferFeatureBriefFromDiffImpl ?? inferFeatureBriefFromDiff)({
+    diff,
+    llm: resolved.llm,
+    model: resolved.model
+  });
+  const result = await (dependencies.verifyFeatureImpl ?? runFeatureVerification)({
+    rootDir,
+    runCommand: target.runCommand,
+    targetUrl: target.targetUrl,
+    brief,
+    llm: resolved.llm,
+    model: resolved.model,
+    maxSteps: resolved.maxSteps,
+    budgetMs: resolved.budgetMs,
+    now: dependencies.now
+  });
+  const diffBriefJsonPath = await writeJsonArtifact(createRunStore(rootDir), result.runId, "diff-brief.json", brief);
+
+  return textResult(`Possum diff verification created ${result.runId}`, {
+    runId: result.runId,
+    reportMarkdownPath: result.reportMarkdownPath,
+    findingsJsonPath: result.findingsJsonPath,
+    verificationJsonPath: result.verificationJsonPath,
+    diffBriefJsonPath
+  });
+}
+
 async function listFindingsTool(rawArgs: unknown, dependencies: PossumMcpDependencies): Promise<CallToolResult> {
   const args = RunScopedArgsSchema.parse(rawArgs);
   const rootDir = resolveRootDir(args.rootDir, dependencies);
@@ -351,7 +415,10 @@ async function getReportTool(rawArgs: unknown, dependencies: PossumMcpDependenci
   return textResult(report, { runId: args.runId });
 }
 
-function resolveFeatureVerificationFromTarget(target: ResolvedAuditTarget): ResolvedFeatureVerificationMcpConfig {
+function resolveFeatureVerificationFromTarget(
+  target: ResolvedAuditTarget,
+  missingModelsMessage = "Feature verification requires models in possum.config.json."
+): ResolvedFeatureVerificationMcpConfig {
   const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
   const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
   const resolved = resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
@@ -360,7 +427,7 @@ function resolveFeatureVerificationFromTarget(target: ResolvedAuditTarget): Reso
   });
 
   if (!resolved) {
-    throw new Error("Feature verification requires models in possum.config.json.");
+    throw new Error(missingModelsMessage);
   }
 
   return {

@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
-import { mkdtemp } from "node:fs/promises";
+import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -161,6 +161,63 @@ describe("runPossumMcpTool", () => {
       reportMarkdownPath: expect.stringContaining("report.md"),
       findingsJsonPath: expect.stringContaining("findings.json"),
       verificationJsonPath: expect.stringContaining("verification.json")
+    });
+  });
+
+  it("runs verify_diff with injected dependencies and writes generated brief artifact", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-diff-"));
+    const generatedBrief = {
+      feature: "Homepage adds a Get the app CTA",
+      pages: ["/"],
+      setup: [],
+      checks: [{ text: "The homepage shows Get the app", hints: { expectedText: "Get the app" } }]
+    };
+
+    const result = await runPossumMcpTool(
+      "verify_diff",
+      { rootDir, targetUrl: "http://localhost:3000", base: "main" },
+      {
+        now: new Date("2026-06-28T02:00:00.000Z"),
+        resolveFeatureVerification: () => ({
+          llm: {
+            async complete() {
+              return { text: "{}" };
+            }
+          },
+          model: "agent-model",
+          maxSteps: 5,
+          budgetMs: 60_000
+        }),
+        collectGitDiffImpl: async (input) => {
+          expect(input).toMatchObject({ rootDir, base: "main" });
+          return { source: "base", base: "main", diff: "diff body", changedFiles: ["app/page.tsx"] };
+        },
+        inferFeatureBriefFromDiffImpl: async (input) => {
+          expect(input.diff.changedFiles).toEqual(["app/page.tsx"]);
+          expect(input.model).toBe("agent-model");
+          return generatedBrief;
+        },
+        verifyFeatureImpl: async (input) => {
+          expect(input.brief).toEqual(generatedBrief);
+          return {
+            runId: "run_20260628_020000",
+            runDir: join(rootDir, ".possum", "runs", "run_20260628_020000"),
+            reportMarkdownPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.md"),
+            findingsJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "findings.json"),
+            verificationJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "verification.json")
+          };
+        }
+      }
+    );
+
+    const generatedBriefPath = join(rootDir, ".possum", "runs", "run_20260628_020000", "diff-brief.json");
+    await expect(readFile(generatedBriefPath, "utf8")).resolves.toContain("Homepage adds a Get the app CTA");
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_20260628_020000",
+      reportMarkdownPath: expect.stringContaining("report.md"),
+      findingsJsonPath: expect.stringContaining("findings.json"),
+      verificationJsonPath: expect.stringContaining("verification.json"),
+      diffBriefJsonPath: generatedBriefPath
     });
   });
 
