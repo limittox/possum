@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.4.0 - 2026-06-28
+
+### Added
+
+- Enhanced debugging bundle artifacts for findings: `debug.json`, `repair-hints.md`, and report links.
+- `possum auth record` browser session recorder for authenticated apps.
+- Config support for `auth.storageState` and automatic authenticated verification.
+- CLI `--auth <profile-or-path>` support for `audit`, `verify-app`, `verify-feature`, and `verify-diff`.
+- MCP verification tools now use configured auth storage state.
+
+### Changed
+
+- `possum init` now ignores both `.possum/runs/` and `.possum/auth/`.
+- Browser probes wait more reliably for submitted requests before evaluating findings.
+
 ## 0.3.0 - 2026-06-28
 
 ### Added
