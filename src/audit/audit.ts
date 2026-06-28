@@ -35,6 +35,7 @@ export interface AuditInput {
   runType?: RunType;
   claimVerification?: AuditClaimVerification;
   onProgress?: (event: AuditProgressEvent) => void;
+  storageState?: string;
 }
 
 export interface AuditResult {
@@ -78,6 +79,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     const surface = await probeTargetSurface({
       rootDir: input.rootDir,
       targetUrl: input.targetUrl,
+      storageState: input.storageState,
       screenshot: {
         absolutePath: join(store.runsDir, runId, screenshotRelativePath),
         relativePath: screenshotRelativePath
@@ -95,6 +97,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     report({ type: "phase-start", phase: "impatient", index: 2, total });
     impatientDoubleSubmit = await probeImpatientDoubleSubmit({
       targetUrl: input.targetUrl,
+      storageState: input.storageState,
       trace: {
         absolutePath: join(store.runsDir, runId, impatientTraceRelativePath),
         relativePath: impatientTraceRelativePath
@@ -107,6 +110,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     report({ type: "phase-start", phase: "hostile", index: 3, total });
     hostileValidation = await probeHostileValidation({
       targetUrl: input.targetUrl,
+      storageState: input.storageState,
       trace: {
         absolutePath: join(store.runsDir, runId, hostileTraceRelativePath),
         relativePath: hostileTraceRelativePath
@@ -125,7 +129,10 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
         (async () => {
           const browser = await chromium.launch();
           claimBrowsers.push(browser);
-          const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+          const page = await browser.newPage({
+            viewport: { width: 1280, height: 720 },
+            ...(input.storageState ? { storageState: input.storageState } : {})
+          });
           await page.goto(input.targetUrl, { waitUntil: "domcontentloaded", timeout: 5000 });
           return createPlaywrightClaimPage(page);
         });

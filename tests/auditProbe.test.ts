@@ -1,10 +1,11 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
-import { access, mkdtemp, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
 import { runAudit } from "../src/audit/audit.js";
+import { probeTargetSurface } from "../src/audit/surfaceProbe.js";
 
 const servers: Array<ReturnType<typeof createServer>> = [];
 
@@ -24,6 +25,24 @@ async function serveHtml(html: string): Promise<string> {
   const server = createServer((_request, response) => {
     response.writeHead(200, { "content-type": "text/html" });
     response.end(html);
+  });
+
+  servers.push(server);
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  return `http://127.0.0.1:${address.port}`;
+}
+
+async function serveAuthenticatedHtml(): Promise<string> {
+  const server = createServer((request, response) => {
+    const isAuthenticated = request.headers.cookie?.includes("session=1") ?? false;
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(
+      isAuthenticated
+        ? "<title>Dashboard</title><h1>Welcome back</h1><a href='/account'>Account</a>"
+        : "<title>Sign in</title><h1>Please sign in</h1>"
+    );
   });
 
   servers.push(server);
@@ -128,6 +147,37 @@ async function serveHostileErrorForm(): Promise<{ targetUrl: string; submissions
 }
 
 describe("runAudit", () => {
+  it("uses Playwright storage state when probing the target surface", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-auth-surface-"));
+    const targetUrl = await serveAuthenticatedHtml();
+    const storageState = join(root, ".possum/auth/default.json");
+    await mkdir(join(root, ".possum/auth"), { recursive: true });
+    await writeFile(
+      storageState,
+      JSON.stringify({
+        cookies: [
+          {
+            name: "session",
+            value: "1",
+            domain: "127.0.0.1",
+            path: "/",
+            expires: -1,
+            httpOnly: false,
+            secure: false,
+            sameSite: "Lax"
+          }
+        ],
+        origins: []
+      }),
+      "utf8"
+    );
+
+    const surface = await probeTargetSurface({ rootDir: root, targetUrl, storageState });
+
+    expect(surface.title).toBe("Dashboard");
+    expect(surface.headings).toContain("Welcome back");
+  });
+
   it("writes surface.json for a reachable app", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-real-audit-"));
     await writeFile(join(root, "README.md"), "# Reachable App\n\nCustomers can launch a workspace in minutes.\n", "utf8");

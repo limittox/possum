@@ -28,6 +28,7 @@ export interface RunFeatureVerificationInput {
   now?: Date;
   pageFactory?: () => Promise<VerificationBrowserPage>;
   onProgress?: AuditProgressReporter;
+  storageState?: string;
 }
 
 export interface FeatureVerificationResult {
@@ -58,7 +59,9 @@ export async function runFeatureVerification(input: RunFeatureVerificationInput)
 
     const inferred = brief.checks.length === 0 ? await inferFeatureChecks({ brief, llm: input.llm, model: input.model }) : [];
     const checks = normalizeFeatureChecks(brief, inferred);
-    const page = input.pageFactory ? await input.pageFactory() : await createDefaultPage(input.targetUrl, browsers);
+    const page = input.pageFactory
+      ? await input.pageFactory()
+      : await createDefaultPage(input.targetUrl, browsers, input.storageState);
 
     input.onProgress?.({ type: "feature-setup-start", steps: brief.setup.length });
     const setup = await verifyFeatureSetup({
@@ -156,10 +159,17 @@ export async function runFeatureVerification(input: RunFeatureVerificationInput)
   }
 }
 
-async function createDefaultPage(targetUrl: string, browsers: Browser[]): Promise<VerificationBrowserPage> {
+async function createDefaultPage(
+  targetUrl: string,
+  browsers: Browser[],
+  storageState?: string
+): Promise<VerificationBrowserPage> {
   const browser = await chromium.launch();
   browsers.push(browser);
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    ...(storageState ? { storageState } : {})
+  });
   await page.goto(targetUrl, { waitUntil: "domcontentloaded", timeout: 5000 });
   return createPlaywrightVerificationPage(page);
 }

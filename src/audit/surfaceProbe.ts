@@ -16,11 +16,15 @@ export interface ProbeTargetSurfaceInput {
   targetUrl: string;
   screenshot?: BrowserArtifact;
   trace?: BrowserArtifact;
+  storageState?: string;
 }
 
 export async function probeTargetSurface(input: ProbeTargetSurfaceInput): Promise<PageSurface> {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    ...(input.storageState ? { storageState: input.storageState } : {})
+  });
 
   try {
     const response = await page.goto(input.targetUrl, { waitUntil: "domcontentloaded", timeout: 5000 });

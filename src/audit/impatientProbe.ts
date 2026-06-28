@@ -27,13 +27,17 @@ export interface DoubleSubmitProbeResult {
 export interface ProbeImpatientDoubleSubmitInput {
   targetUrl: string;
   trace?: BrowserArtifact;
+  storageState?: string;
 }
 
 export async function probeImpatientDoubleSubmit(
   input: ProbeImpatientDoubleSubmitInput
 ): Promise<DoubleSubmitProbeResult> {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    ...(input.storageState ? { storageState: input.storageState } : {})
+  });
   const submittedUrls: string[] = [];
   const steps: Array<Record<string, unknown>> = [];
 

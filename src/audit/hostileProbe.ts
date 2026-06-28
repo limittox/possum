@@ -27,11 +27,15 @@ export interface HostileProbeResult {
 export interface ProbeHostileInput {
   targetUrl: string;
   trace?: BrowserArtifact;
+  storageState?: string;
 }
 
 export async function probeHostileValidation(input: ProbeHostileInput): Promise<HostileProbeResult> {
   const browser = await chromium.launch();
-  const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
+  const page = await browser.newPage({
+    viewport: { width: 1280, height: 720 },
+    ...(input.storageState ? { storageState: input.storageState } : {})
+  });
   const serverErrors: HostileServerError[] = [];
   const steps: Array<Record<string, unknown>> = [];
 
