@@ -27,6 +27,12 @@ export const FindingSchema = z.object({
   dedupeFingerprint: z.string().min(1)
 });
 
+export const RunDiagnosticSchema = z.object({
+  phase: z.enum(["claims"]),
+  status: z.enum(["inconclusive"]),
+  reason: z.string().min(1)
+});
+
 export const RunReportSchema = z.object({
   runType: RunTypeSchema.default("audit"),
   runId: z.string().min(1),
@@ -34,12 +40,14 @@ export const RunReportSchema = z.object({
   startedAt: z.string().datetime(),
   completedAt: z.string().datetime().optional(),
   personas: z.array(PersonaSchema),
-  findings: z.array(FindingSchema)
+  findings: z.array(FindingSchema),
+  diagnostics: z.array(RunDiagnosticSchema).optional()
 });
 
 export type Severity = z.infer<typeof SeveritySchema>;
 export type Confidence = z.infer<typeof ConfidenceSchema>;
 export type RunType = z.infer<typeof RunTypeSchema>;
 export type Finding = z.infer<typeof FindingSchema>;
+export type RunDiagnostic = z.infer<typeof RunDiagnosticSchema>;
 export type RunReport = z.infer<typeof RunReportSchema>;
 export type RunReportInput = z.input<typeof RunReportSchema>;

@@ -159,9 +159,18 @@ describe("runAudit with claim verification", () => {
     });
 
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+    const markdown = await readFile(result.reportMarkdownPath, "utf8");
 
     expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
     expect(report.findings.some((finding: { persona: string }) => finding.persona === "claims")).toBe(false);
+    expect(report.diagnostics).toEqual([
+      {
+        phase: "claims",
+        status: "inconclusive",
+        reason: "provider timed out"
+      }
+    ]);
+    expect(markdown).toContain("Claims: inconclusive — provider timed out");
   }, 30_000);
 
   it("does not convert claim triage failures into beginner access findings", async () => {
@@ -187,9 +196,18 @@ describe("runAudit with claim verification", () => {
     });
 
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+    const markdown = await readFile(result.reportMarkdownPath, "utf8");
 
     expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
     expect(report.findings).toEqual([]);
+    expect(report.diagnostics).toEqual([
+      {
+        phase: "claims",
+        status: "inconclusive",
+        reason: "claim triage timed out"
+      }
+    ]);
+    expect(markdown).toContain("Claims: inconclusive — claim triage timed out");
     expect(events).toContainEqual({ type: "phase-done", phase: "claims", index: 4, total: 4, findings: 0 });
     expect(events).toContainEqual({ type: "judge-done", accepted: 0, candidates: 0 });
   }, 30_000);

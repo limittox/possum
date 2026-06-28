@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { Browser, chromium } from "playwright";
-import { Finding, RunType } from "../contracts/findings.js";
+import { Finding, RunDiagnostic, RunType } from "../contracts/findings.js";
 import { LlmClient } from "../llm/client.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
 import { evaluateClaimsPersona } from "../personas/claims.js";
@@ -50,6 +50,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   const runId = formatRunId(now);
   const store = createRunStore(input.rootDir);
   const findings: Finding[] = [];
+  const diagnostics: RunDiagnostic[] = [];
   let surfaceJsonPath: string | undefined;
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
   let hostileValidation: HostileProbeResult | undefined;
@@ -152,9 +153,13 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
             })
           );
         });
-      } catch {
+        summary.inconclusiveReasons.forEach((reason) => {
+          diagnostics.push(createClaimsInconclusiveDiagnostic(reason));
+        });
+      } catch (error) {
         // Claim verification depends on external LLM infrastructure. A triage/provider failure is inconclusive,
         // not evidence that the app is unreachable or that a claim is unfulfilled.
+        diagnostics.push(createClaimsInconclusiveDiagnostic(formatUnknownError(error)));
       }
 
       report({
@@ -185,7 +190,8 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     personas: input.claimVerification
       ? ["beginner", "impatient", "hostile", "claims"]
       : ["beginner", "impatient", "hostile"],
-    findings: acceptedFindings
+    findings: acceptedFindings,
+    ...(diagnostics.length > 0 ? { diagnostics } : {})
   });
 
   await Promise.all(
@@ -206,8 +212,16 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   };
 }
 
+function createClaimsInconclusiveDiagnostic(reason: string): RunDiagnostic {
+  return { phase: "claims", status: "inconclusive", reason };
+}
+
+function formatUnknownError(error: unknown): string {
+  return error instanceof Error ? error.message : String(error);
+}
+
 function createAccessFinding(runId: string, targetUrl: string, error: unknown): Finding {
-  const message = error instanceof Error ? error.message : String(error);
+  const message = formatUnknownError(error);
 
   return {
     id: "finding_beginner_access_001",

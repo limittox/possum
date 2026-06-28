@@ -28,6 +28,9 @@ export function renderRunMarkdown(report: RunReport): string {
     report.findings.length === 0
       ? ["No confirmed findings."]
       : report.findings.map((finding) => `- ${finding.id} (${finding.persona}, ${finding.severity})`);
+  const diagnosticLines = (report.diagnostics ?? []).map(
+    (diagnostic) => `- ${formatDiagnosticPhase(diagnostic.phase)}: ${diagnostic.status} — ${diagnostic.reason}`
+  );
 
   return [
     formatRunTitle(report),
@@ -39,10 +42,15 @@ export function renderRunMarkdown(report: RunReport): string {
     "",
     "## Findings",
     ...findingLines,
+    ...(diagnosticLines.length > 0 ? ["", "## Diagnostics", ...diagnosticLines] : []),
     ""
   ]
     .filter((line): line is string => line !== undefined)
     .join("\n");
+}
+
+function formatDiagnosticPhase(phase: string): string {
+  return phase.charAt(0).toUpperCase() + phase.slice(1);
 }
 
 function formatRunTitle(report: RunReport): string {

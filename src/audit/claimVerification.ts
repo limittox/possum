@@ -32,6 +32,7 @@ export interface VerifyClaimsSummary {
   processed: number;
   total: number;
   truncated: boolean;
+  inconclusiveReasons: string[];
 }
 
 export async function verifyClaimsWithStability(input: VerifyClaimsInput): Promise<VerifyClaimsSummary> {
@@ -44,12 +45,14 @@ export async function verifyClaimsWithStability(input: VerifyClaimsInput): Promi
   const now = input.now ?? Date.now;
   const deadline = now() + input.budgetMs;
   const confirmed: ConfirmedClaimResult[] = [];
+  const inconclusiveReasons: string[] = [];
   let processed = 0;
   let truncated = false;
 
   for (const [claimIndex, candidate] of triaged.entries()) {
     if (now() >= deadline) {
       truncated = true;
+      inconclusiveReasons.push(`claim verification budget reached after ${processed}/${triaged.length} claims`);
       input.onProgress?.({ type: "claims-truncated", processed, total: triaged.length });
       break;
     }
@@ -111,6 +114,7 @@ export async function verifyClaimsWithStability(input: VerifyClaimsInput): Promi
     });
 
     if (verdicts.some((verdict) => verdict.verdict === "inconclusive")) {
+      inconclusiveReasons.push(last.reason);
       continue;
     }
     if (verdicts.every((verdict) => verdict.verdict === "fulfilled")) {
@@ -127,5 +131,9 @@ export async function verifyClaimsWithStability(input: VerifyClaimsInput): Promi
     });
   }
 
-  return { confirmed, processed, total: triaged.length, truncated };
+  return { confirmed, processed, total: triaged.length, truncated, inconclusiveReasons: uniqueStrings(inconclusiveReasons) };
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values)];
 }
