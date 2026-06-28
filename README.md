@@ -13,6 +13,7 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 - Runs locally against `localhost` with `possum verify-app` or `possum audit`.
 - Verifies completed features with `possum verify-feature --brief feature.json`.
 - Infers feature checks from git changes and verifies them with `possum verify-diff`.
+- Records login state with `possum auth record` for authenticated verification.
 - Stores app verification settings in `possum.config.json` with `possum init`.
 - Can start a local app for verification from config or with `possum verify-app --command "npm run dev" --url http://localhost:3000`.
 - Simulates beginner, impatient, hostile, and returning customers.
@@ -94,6 +95,30 @@ Commands from config use the same sandbox as `--command`: no shell chaining, pip
 While an audit runs, Possum prints live per-phase progress to stderr (`possum: [1/3] beginner …`, `… judge — 1/1 findings accepted`) so you can see it working. The machine-readable result lines (run id, report path, surface path) go to stdout, so `possum audit > out.txt` keeps that output clean while progress still shows in your terminal.
 
 Commands config same sandbox `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, executable paths. While verification runs, Possum prints live progress to stderr and machine-readable result lines (run id, report path, surface path) to stdout.
+
+## Authenticated Verification
+
+For apps that require login, record a browser session once:
+
+```bash
+possum auth record
+```
+
+Possum starts the configured app, opens a headed browser, waits while you log in manually, then saves Playwright storage state to `.possum/auth/default.json` and updates `possum.config.json`:
+
+```json
+{ "auth": { "storageState": ".possum/auth/default.json" } }
+```
+
+All verification commands then use that auth state automatically, including MCP `verify_app`, `verify_feature`, `verify_diff`, and `run_audit`. Use named profiles or explicit paths when needed:
+
+```bash
+possum auth record --name admin
+possum verify-app --auth admin
+possum verify-diff --auth .possum/auth/admin.json
+```
+
+`possum init` and `possum auth record` ensure `.possum/auth/` is gitignored because storage state contains cookies and tokens.
 
 ## Feature Verification
 
