@@ -130,7 +130,7 @@ export async function probeHostileValidation(input: ProbeHostileInput): Promise<
     }, HOSTILE_PAYLOAD);
 
     await page.locator('[data-possum-hostile-submit="true"]').click({ timeout: 2000 });
-    await page.waitForTimeout(500);
+    await waitForCondition(() => serverErrors.length > 0, 1500);
 
     steps.push({
       action: "submit_hostile_payload",
@@ -150,6 +150,16 @@ export async function probeHostileValidation(input: ProbeHostileInput): Promise<
     return result;
   } finally {
     await browser.close();
+  }
+}
+
+async function waitForCondition(predicate: () => boolean, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
 

@@ -149,7 +149,7 @@ export async function probeImpatientDoubleSubmit(
     });
 
     await page.locator('[data-possum-impatient-submit="true"]').dblclick({ timeout: 2000 });
-    await page.waitForTimeout(500);
+    await waitForCondition(() => submittedUrls.length >= 2, 1500);
 
     steps.push({
       action: "double_submit",
@@ -172,6 +172,16 @@ export async function probeImpatientDoubleSubmit(
     return result;
   } finally {
     await browser.close();
+  }
+}
+
+async function waitForCondition(predicate: () => boolean, timeoutMs: number): Promise<void> {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (predicate()) {
+      return;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 50));
   }
 }
 
