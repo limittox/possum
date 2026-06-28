@@ -1,6 +1,8 @@
 export type AuditPhase = "beginner" | "impatient" | "hostile" | "claims";
 
 export type ClaimProgressVerdict = "fulfilled" | "unfulfilled" | "inconclusive";
+export type FeatureProgressVerdict = "passed" | "failed" | "inconclusive";
+export type FeatureSetupProgressStatus = "skipped" | "passed" | "inconclusive";
 
 export type AuditProgressEvent =
   | { type: "app-starting"; command: string }
@@ -19,6 +21,11 @@ export type AuditProgressEvent =
       maxSteps: number;
     }
   | { type: "claim-done"; index: number; total: number; verdict: ClaimProgressVerdict }
-  | { type: "claims-truncated"; processed: number; total: number };
+  | { type: "claims-truncated"; processed: number; total: number }
+  | { type: "feature-setup-start"; steps: number }
+  | { type: "feature-setup-done"; status: FeatureSetupProgressStatus }
+  | { type: "feature-check-start"; index: number; total: number; check: string }
+  | { type: "feature-check-step"; index: number; total: number; step: number; maxSteps: number }
+  | { type: "feature-check-done"; index: number; total: number; verdict: FeatureProgressVerdict };
 
 export type AuditProgressReporter = (event: AuditProgressEvent) => void;

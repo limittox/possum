@@ -29,6 +29,16 @@ export function formatProgressEvent(event: AuditProgressEvent): string {
       return `possum: claim ${event.index}/${event.total} — ${event.verdict}`;
     case "claims-truncated":
       return `possum: claims — budget reached, verified ${event.processed}/${event.total} claims`;
+    case "feature-setup-start":
+      return `possum: setup — ${event.steps} ${event.steps === 1 ? "step" : "steps"}...`;
+    case "feature-setup-done":
+      return `possum: setup — ${event.status}`;
+    case "feature-check-start":
+      return `possum: check ${event.index}/${event.total} — "${formatClaimLabel(event.check)}"`;
+    case "feature-check-step":
+      return `possum: check ${event.index}/${event.total} · step ${event.step}/${event.maxSteps}...`;
+    case "feature-check-done":
+      return `possum: check ${event.index}/${event.total} — ${event.verdict}`;
   }
 }
 

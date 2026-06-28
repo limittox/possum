@@ -2,6 +2,7 @@ import { Browser, chromium } from "playwright";
 import { LlmClient } from "../llm/client.js";
 import { createRunStore, writeFindingArtifacts, writeJsonArtifact, writeRunReport } from "../runs/runStore.js";
 import { formatRunId } from "../audit/auditStub.js";
+import { AuditProgressReporter } from "../audit/progress.js";
 import { ManagedRunCommand, startRunCommand } from "../audit/runCommand.js";
 import { inferFeatureChecks } from "./checkInference.js";
 import { createFeatureFinding, createFeatureFindingRepro, createFeatureFindingTrace } from "./featureFindings.js";
@@ -26,6 +27,7 @@ export interface RunFeatureVerificationInput {
   budgetMs: number;
   now?: Date;
   pageFactory?: () => Promise<VerificationBrowserPage>;
+  onProgress?: AuditProgressReporter;
 }
 
 export interface FeatureVerificationResult {
@@ -58,6 +60,7 @@ export async function runFeatureVerification(input: RunFeatureVerificationInput)
     const checks = normalizeFeatureChecks(brief, inferred);
     const page = input.pageFactory ? await input.pageFactory() : await createDefaultPage(input.targetUrl, browsers);
 
+    input.onProgress?.({ type: "feature-setup-start", steps: brief.setup.length });
     const setup = await verifyFeatureSetup({
       setup: brief.setup,
       feature: brief.feature,
@@ -68,6 +71,7 @@ export async function runFeatureVerification(input: RunFeatureVerificationInput)
       maxSteps: input.maxSteps,
       deadline
     });
+    input.onProgress?.({ type: "feature-setup-done", status: setup.status });
 
     const checkResults: FeatureCheckResult[] = [];
     if (setup.status === "inconclusive") {
@@ -82,18 +86,32 @@ export async function runFeatureVerification(input: RunFeatureVerificationInput)
         });
       }
     } else {
-      for (const check of checks) {
-        checkResults.push(
-          await verifyFeatureCheck({
-            check,
-            page,
-            llm: input.llm,
-            model: input.model,
-            targetUrl: input.targetUrl,
-            maxSteps: input.maxSteps,
-            deadline
-          })
-        );
+      for (const [checkIndex, check] of checks.entries()) {
+        input.onProgress?.({ type: "feature-check-start", index: checkIndex + 1, total: checks.length, check: check.text });
+        const result = await verifyFeatureCheck({
+          check,
+          page,
+          llm: input.llm,
+          model: input.model,
+          targetUrl: input.targetUrl,
+          maxSteps: input.maxSteps,
+          deadline,
+          onStep: (step) =>
+            input.onProgress?.({
+              type: "feature-check-step",
+              index: checkIndex + 1,
+              total: checks.length,
+              step,
+              maxSteps: input.maxSteps
+            })
+        });
+        checkResults.push(result);
+        input.onProgress?.({
+          type: "feature-check-done",
+          index: checkIndex + 1,
+          total: checks.length,
+          verdict: result.verdict
+        });
       }
     }
 

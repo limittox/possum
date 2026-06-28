@@ -99,4 +99,35 @@ describe("formatProgressEvent", () => {
       })
     ).toBe("possum: claims — budget reached, verified 2/3 claims");
   });
+
+  it("formats feature setup start", () => {
+    expect(formatProgressEvent({ type: "feature-setup-start", steps: 2 })).toBe("possum: setup — 2 steps...");
+  });
+
+  it("formats feature setup done", () => {
+    expect(formatProgressEvent({ type: "feature-setup-done", status: "passed" })).toBe("possum: setup — passed");
+  });
+
+  it("formats feature check start", () => {
+    expect(
+      formatProgressEvent({
+        type: "feature-check-start",
+        index: 1,
+        total: 2,
+        check: "Click Export CSV and confirm a CSV downloads"
+      })
+    ).toBe('possum: check 1/2 — "Click Export CSV and confirm a CSV downloads"');
+  });
+
+  it("formats feature check step", () => {
+    expect(formatProgressEvent({ type: "feature-check-step", index: 1, total: 2, step: 3, maxSteps: 20 })).toBe(
+      "possum: check 1/2 · step 3/20..."
+    );
+  });
+
+  it("formats feature check done", () => {
+    expect(formatProgressEvent({ type: "feature-check-done", index: 1, total: 2, verdict: "failed" })).toBe(
+      "possum: check 1/2 — failed"
+    );
+  });
 });

@@ -78,6 +78,7 @@ export function buildProgram(deps: CliDependencies): Command {
       const rawBrief = JSON.parse(await readFile(options.brief, "utf8"));
       const brief = FeatureVerificationBriefSchema.parse(rawBrief);
       const resolved = (deps.resolveFeatureVerification ?? resolveFeatureVerificationFromTarget)(target);
+      const emitProgress = deps.stderr;
       const result = await (deps.verifyFeatureImpl ?? runFeatureVerification)({
         rootDir: deps.cwd,
         runCommand: target.runCommand,
@@ -87,7 +88,8 @@ export function buildProgram(deps: CliDependencies): Command {
         model: resolved.model,
         maxSteps: resolved.maxSteps,
         budgetMs: resolved.budgetMs,
-        now: deps.now
+        now: deps.now,
+        onProgress: emitProgress ? (event) => emitProgress(formatProgressEvent(event)) : undefined
       });
 
       deps.stdout(`Possum feature verification created ${result.runId}`);
