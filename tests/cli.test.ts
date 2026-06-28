@@ -108,6 +108,97 @@ describe("CLI", () => {
     expect(output.join("\n")).toContain("Report:");
   });
 
+  it("records a default auth session and updates possum.config.json", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-auth-record-"));
+    await writeFile(
+      join(root, "possum.config.json"),
+      JSON.stringify({ target: { url: "http://localhost:3000", command: "npm run dev" } }, null, 2),
+      "utf8"
+    );
+    const output: string[] = [];
+    const calls: Array<{ rootDir: string; targetUrl: string; runCommand?: string; name?: string }> = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      recordAuthSessionImpl: async (input) => {
+        calls.push(input);
+        return { profileName: input.name ?? "default", storageStatePath: join(root, ".possum/auth/default.json") };
+      }
+    });
+
+    await program.parseAsync(["node", "possum", "auth", "record"]);
+
+    expect(calls).toMatchObject([
+      { rootDir: root, targetUrl: "http://localhost:3000", runCommand: "npm run dev", name: "default" }
+    ]);
+    const config = JSON.parse(await readFile(join(root, "possum.config.json"), "utf8"));
+    expect(config.auth).toEqual({ storageState: ".possum/auth/default.json" });
+    expect(output.join("\n")).toContain("Auth session recorded: default");
+  });
+
+  it("passes named auth profile storage state to verify-app", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-app-auth-"));
+    const output: string[] = [];
+    let storageState: string | undefined;
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      verifyAppImpl: async (input) => {
+        storageState = input.storageState;
+        return {
+          runId: "run_auth",
+          runDir: join(root, ".possum", "runs", "run_auth"),
+          reportMarkdownPath: join(root, ".possum", "runs", "run_auth", "report.md"),
+          findingsJsonPath: join(root, ".possum", "runs", "run_auth", "findings.json")
+        };
+      }
+    });
+
+    await program.parseAsync(["node", "possum", "verify-app", "--url", "http://localhost:3000", "--auth", "admin"]);
+
+    expect(storageState).toBe(join(root, ".possum/auth/admin.json"));
+  });
+
+  it("passes configured auth storage state to verify-feature", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-feature-auth-"));
+    await writeFile(
+      join(root, "possum.config.json"),
+      JSON.stringify({
+        target: { url: "http://localhost:3000" },
+        auth: { storageState: ".possum/auth/default.json" }
+      }),
+      "utf8"
+    );
+    const briefPath = join(root, "feature.json");
+    await writeFile(briefPath, JSON.stringify({ feature: "Auth-only dashboard", checks: [{ text: "Dashboard loads" }] }), "utf8");
+    const output: string[] = [];
+    let storageState: string | undefined;
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      resolveFeatureVerification: () => ({
+        llm: { async complete() { return { text: "{}" }; } },
+        model: "agent-model",
+        maxSteps: 5,
+        budgetMs: 60_000
+      }),
+      verifyFeatureImpl: async (input) => {
+        storageState = input.storageState;
+        return {
+          runId: "run_auth_feature",
+          runDir: join(root, ".possum", "runs", "run_auth_feature"),
+          reportMarkdownPath: join(root, ".possum", "runs", "run_auth_feature", "report.md"),
+          findingsJsonPath: join(root, ".possum", "runs", "run_auth_feature", "findings.json"),
+          verificationJsonPath: join(root, ".possum", "runs", "run_auth_feature", "verification.json")
+        };
+      }
+    });
+
+    await program.parseAsync(["node", "possum", "verify-feature", "--brief", briefPath]);
+
+    expect(storageState).toBe(join(root, ".possum/auth/default.json"));
+  });
+
   it("runs verify-feature from a brief file using injected dependencies", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-feature-"));
     const briefPath = join(root, "feature.json");
