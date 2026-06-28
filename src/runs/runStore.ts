@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { Finding, RunReport, RunReportInput, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
+import { createDebugBundle, renderRepairHintsMarkdown } from "../debug/debugBundle.js";
 import { renderFindingMarkdown, renderRunMarkdown } from "../report/renderMarkdown.js";
 
 export interface RunStore {
@@ -91,10 +92,14 @@ export async function writeFindingArtifacts(
 ): Promise<string> {
   const findingDir = join(store.runsDir, runId, "findings", finding.id);
 
+  const debugBundle = createDebugBundle({ finding, trace: artifacts.trace });
+
   await mkdir(findingDir, { recursive: true });
   await writeFile(join(findingDir, "report.md"), renderFindingMarkdown(finding), "utf8");
   await writeFile(join(findingDir, "trace.json"), `${JSON.stringify(artifacts.trace, null, 2)}\n`, "utf8");
   await writeFile(join(findingDir, "repro.spec.ts"), artifacts.reproSpec, "utf8");
+  await writeFile(join(findingDir, "debug.json"), `${JSON.stringify(debugBundle, null, 2)}\n`, "utf8");
+  await writeFile(join(findingDir, "repair-hints.md"), renderRepairHintsMarkdown(debugBundle), "utf8");
 
   return findingDir;
 }

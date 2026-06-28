@@ -19,6 +19,12 @@ export function renderFindingMarkdown(finding: Finding): string {
     "",
     "## Repro",
     `Run: npx playwright test ${finding.evidence.repro}`,
+    "",
+    "## Debugging Bundle",
+    "- Debug JSON: debug.json",
+    "- Repair hints: repair-hints.md",
+    "- Trace: trace.json",
+    "- Repro: repro.spec.ts",
     ""
   ].join("\n");
 }
