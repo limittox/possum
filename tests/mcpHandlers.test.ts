@@ -107,6 +107,63 @@ describe("runPossumMcpTool", () => {
     });
   });
 
+  it("runs verify_app and returns structured run data", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-app-"));
+    const targetUrl = await serveHtml("<title>Verify App</title><h1>Hello</h1>");
+
+    const result = await runPossumMcpTool(
+      "verify_app",
+      { rootDir, targetUrl },
+      { now: new Date("2026-06-28T02:00:00.000Z") }
+    );
+
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_20260628_020000",
+      reportMarkdownPath: expect.stringContaining("report.md"),
+      findingsJsonPath: expect.stringContaining("findings.json")
+    });
+  });
+
+  it("runs verify_feature with injected dependencies and returns verification summary paths", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-feature-"));
+
+    const result = await runPossumMcpTool(
+      "verify_feature",
+      {
+        rootDir,
+        targetUrl: "http://localhost:3000",
+        brief: { feature: "Added CSV export", checks: [{ text: "Export CSV button is visible" }] }
+      },
+      {
+        now: new Date("2026-06-28T02:00:00.000Z"),
+        resolveFeatureVerification: () => ({
+          llm: {
+            async complete() {
+              return { text: "{}" };
+            }
+          },
+          model: "agent-model",
+          maxSteps: 5,
+          budgetMs: 60_000
+        }),
+        verifyFeatureImpl: async () => ({
+          runId: "run_20260628_020000",
+          runDir: join(rootDir, ".possum", "runs", "run_20260628_020000"),
+          reportMarkdownPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.md"),
+          findingsJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "findings.json"),
+          verificationJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "verification.json")
+        })
+      }
+    );
+
+    expect(result.structuredContent).toMatchObject({
+      runId: "run_20260628_020000",
+      reportMarkdownPath: expect.stringContaining("report.md"),
+      findingsJsonPath: expect.stringContaining("findings.json"),
+      verificationJsonPath: expect.stringContaining("verification.json")
+    });
+  });
+
   it("returns a replay command for a repro path", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-replay-"));
 

@@ -5,6 +5,8 @@ describe("Possum MCP server", () => {
   it("exposes coding-agent audit tools", () => {
     expect(getPossumMcpToolNames()).toEqual([
       "run_audit",
+      "verify_app",
+      "verify_feature",
       "list_findings",
       "get_finding",
       "replay_finding",
