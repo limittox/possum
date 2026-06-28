@@ -28,12 +28,36 @@ Use `target.command` when Possum should start the app. Omit it when Claude Code 
 Add this to the Claude Code project memory or repository instructions:
 
 ```text
-When you complete a task that changes customer-facing behavior, consider running Possum. If you just completed a specific feature, prefer `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks. Use `possum verify-app` for broader app health checks. If `possum.config.json` exists and the app can be started, `possum audit` remains available as a compatibility alias. Read the generated `.possum/runs/<runId>/report.md`. Treat confirmed findings as repair inputs, inspect the finding trace/screenshots/repro, fix the app, and verify with `possum replay <reproPath>` or a follow-up `possum audit`. Do not run Possum for documentation-only work, internal refactors, or changes that cannot affect a customer workflow. If config is missing, ask to run `possum init` rather than guessing the app startup command.
+When you complete a task that changes customer-facing behavior, consider running Possum.
+
+Prefer `possum verify-diff` (or MCP `verify_diff`) after user-facing code changes. Possum will infer feature checks from git diff and verify them in the browser.
+
+If the user supplied explicit acceptance criteria, use `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks.
+
+Use `possum verify-app` (or MCP `verify_app`) for broader app health checks.
+
+If `possum.config.json` exists and the app can be started, `possum audit` remains available as a compatibility alias.
+
+Read the generated `.possum/runs/<runId>/report.md`. Treat confirmed findings as repair inputs, inspect the finding trace/screenshots/repro, fix the app, and verify with `possum replay <reproPath>` or a follow-up Possum verification.
+
+Do not run Possum for documentation-only work, internal refactors, or changes that cannot affect a customer workflow. If config is missing, ask to run `possum init` rather than guessing the app startup command.
 ```
 
 ## CLI Workflow
 
-Run:
+After customer-facing code changes, run:
+
+```bash
+possum verify-diff
+```
+
+When explicit acceptance criteria are known, run:
+
+```bash
+possum verify-feature --brief feature.json
+```
+
+For broad app confidence, run:
 
 ```bash
 possum verify-app
@@ -55,6 +79,7 @@ possum replay .possum/runs/<runId>/findings/<findingId>/repro.spec.ts
 
 When the Possum MCP server is available, Claude Code can use:
 
+- `verify_diff`
 - `verify_feature`
 - `verify_app`
 - `run_audit`
@@ -63,7 +88,7 @@ When the Possum MCP server is available, Claude Code can use:
 - `get_finding`
 - `replay_finding`
 
-Call `verify_app` or `run_audit` with the repository root when `possum.config.json` exists. Pass explicit `targetUrl` or `runCommand` only for one-off overrides.
+Call `verify_diff` after user-facing code changes, `verify_feature` when explicit acceptance criteria exist, or `verify_app` for broad app confidence. Pass explicit `targetUrl` or `runCommand` only for one-off overrides.
 
 ## Good Trigger Examples
 

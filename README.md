@@ -26,9 +26,9 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 
 ## Coding Agent Integration
 
-Possum is a CLI tool with a first-class MCP server. The CLI is the durable baseline; MCP is the coding-agent integration layer.
+Possum is CLI-first with a first-class MCP server. The CLI is the durable baseline; MCP is the coding-agent integration layer.
 
-Possum is designed to be called by coding agents like Claude Code and Codex after they finish a task. If an agent changes user-facing behavior and decides the work would benefit from persona-based testing, it should automatically run a local Possum audit, inspect findings, and use the repro evidence as the next repair input.
+Possum is designed to be called by coding agents such as Claude Code or Codex after they finish a task. If an agent changes user-facing behavior, it should run the Possum command that matches its intent, inspect any findings, and use repro evidence as the next repair input.
 
 Agent setup docs:
 
@@ -40,12 +40,20 @@ The agent loop should look like:
 
 1. Coding agent implements the requested change.
 2. Coding agent decides whether the change affects a customer-facing workflow.
-3. If it completed a specific feature, it runs `possum verify-feature --brief feature.json`; for broader app health, it runs `possum verify-app`.
+3. If the change is customer-facing, run `possum verify-diff`; if explicit acceptance criteria exist, run `possum verify-feature --brief feature.json`; for broader app health, run `possum verify-app`.
 4. Possum writes findings, reports, screenshots, traces, and repro scripts.
 5. Coding agent fixes any relevant finding.
-6. Coding agent runs `possum replay <reproPath>` to verify the customer failure no longer reproduces.
+6. Coding agent runs `possum replay <reproPath>` or another relevant Possum verification to confirm the customer failure no longer reproduces.
 
-The MCP server exposes the same workflow through `verify_feature`, `verify_app`, `run_audit`, `list_findings`, `get_finding`, `get_report`, and `replay_finding`, so coding agents can invoke Possum without shell-specific glue. After `possum init`, MCP `verify_app` or `run_audit` can be called with just the repository root. Explicit MCP parameters still override config values.
+The MCP server exposes the same workflow through `verify_diff`, `verify_feature`, `verify_app`, `run_audit`, `list_findings`, `get_finding`, `get_report`, and `replay_finding`, so coding agents can invoke Possum without shell-specific glue. After `possum init`, MCP `verify_diff`, `verify_app`, or `run_audit` can be called with just the repository root. Explicit MCP parameters still override config values.
+
+Use the verification command that matches the agent's intent:
+
+| Command | Use when |
+|---|---|
+| `verify-diff` / `verify_diff` | The agent changed customer-facing code and should infer what to verify from git diff. |
+| `verify-feature` / `verify_feature` | The task has explicit acceptance criteria or a written feature brief. |
+| `verify-app` / `verify_app` | The agent needs broader app confidence beyond a single change. |
 
 ## App Config
 

@@ -7,19 +7,21 @@ Possum is available in this repository as the local customer simulator.
 
 After implementing a task, decide whether the change affects customer-facing behavior. Customer-facing behavior includes pages, navigation, onboarding, forms, auth, checkout, settings, empty states, user-visible errors, and product claims in README/homepage/copy.
 
-If you just completed a specific feature, prefer `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks. Use `possum verify-app` for broader app health checks.
+Prefer `possum verify-diff` (or MCP `verify_diff`) after user-facing code changes. Possum will infer feature checks from git diff and verify them in the browser.
+
+If the user supplied explicit acceptance criteria, use `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks.
+
+Use `possum verify-app` (or MCP `verify_app`) for broader app health checks.
 
 If the change is customer-facing and `possum.config.json` exists, run:
 
-possum verify-app
+possum verify-diff
 
 Inspect the generated `.possum/runs/<runId>/report.md`. For each relevant confirmed finding, inspect its trace, screenshots, and generated Playwright repro. Use the finding as repair evidence, fix the app, and then verify with:
 
 possum replay <reproPath>
 
-or run another:
-
-possum verify-app
+or run another relevant Possum verification.
 
 If `possum.config.json` does not exist, do not guess the app URL or startup command. Suggest running:
 
@@ -29,6 +31,7 @@ Skip Possum for documentation-only changes, internal refactors, test-only change
 
 If the Possum MCP server is configured, prefer MCP tools for structured access:
 
+- verify_diff
 - verify_feature
 - verify_app
 - run_audit
@@ -45,9 +48,10 @@ Use CLI commands as the fallback.
 1. Implement the requested change.
 2. Build or start the app as the project normally requires.
 3. Run Possum only when the change affects customer-facing behavior.
-4. Read the report before claiming the task is complete.
-5. Fix relevant confirmed findings.
-6. Replay the finding or rerun the audit.
+4. Prefer `verify-diff` / `verify_diff` for user-facing code changes, `verify-feature` / `verify_feature` when acceptance criteria are explicit, and `verify-app` / `verify_app` for broader app confidence.
+5. Read the report before claiming the task is complete.
+6. Fix relevant confirmed findings.
+7. Replay the finding or rerun the relevant Possum verification.
 
 ## Config Reminder
 
