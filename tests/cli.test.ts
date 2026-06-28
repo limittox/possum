@@ -1,4 +1,4 @@
-import { mkdtemp, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -147,6 +147,148 @@ describe("CLI", () => {
       `Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.md")}`,
       `Verification: ${join(root, ".possum", "runs", "run_20260628_020000", "verification.json")}`
     ]);
+  });
+
+  it("runs verify-diff by inferring and verifying a generated feature brief", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-diff-"));
+    const output: string[] = [];
+    const generatedBrief = {
+      feature: "Homepage adds a Get the app CTA",
+      pages: ["/"],
+      setup: [],
+      checks: [{ text: "The homepage shows Get the app", hints: { expectedText: "Get the app" } }]
+    };
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      now: new Date("2026-06-28T02:00:00.000Z"),
+      resolveFeatureVerification: () => ({
+        llm: {
+          async complete() {
+            return { text: "{}" };
+          }
+        },
+        model: "agent-model",
+        maxSteps: 5,
+        budgetMs: 60_000
+      }),
+      collectGitDiffImpl: async () => ({
+        source: "working-tree",
+        diff: "diff body",
+        changedFiles: ["app/page.tsx"]
+      }),
+      inferFeatureBriefFromDiffImpl: async () => generatedBrief,
+      verifyFeatureImpl: async (input) => {
+        expect(input.brief).toEqual(generatedBrief);
+        return {
+          runId: "run_20260628_020000",
+          runDir: join(root, ".possum", "runs", "run_20260628_020000"),
+          reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+          findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
+          verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
+        };
+      }
+    });
+
+    await program.parseAsync(["node", "possum", "verify-diff", "--url", "http://localhost:3000"]);
+
+    const generatedPath = join(root, ".possum", "runs", "run_20260628_020000", "diff-brief.json");
+    await expect(readFile(generatedPath, "utf8")).resolves.toContain("Homepage adds a Get the app CTA");
+    expect(output).toEqual([
+      "Possum diff verification created run_20260628_020000",
+      `Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.md")}`,
+      `Verification: ${join(root, ".possum", "runs", "run_20260628_020000", "verification.json")}`,
+      `Generated brief: ${generatedPath}`
+    ]);
+  });
+
+  it("writes verify-diff generated brief to --brief-out", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-diff-brief-out-"));
+    const briefOut = join(root, "feature.generated.json");
+    const output: string[] = [];
+    const generatedBrief = {
+      feature: "Updated pricing CTA",
+      pages: ["/pricing"],
+      setup: [],
+      checks: [{ text: "Pricing page shows updated CTA" }]
+    };
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      resolveFeatureVerification: () => ({
+        llm: { async complete() { return { text: "{}" }; } },
+        model: "agent-model",
+        maxSteps: 5,
+        budgetMs: 60_000
+      }),
+      collectGitDiffImpl: async () => ({ source: "base", base: "main", diff: "diff body", changedFiles: ["app/pricing/page.tsx"] }),
+      inferFeatureBriefFromDiffImpl: async () => generatedBrief,
+      verifyFeatureImpl: async () => ({
+        runId: "run_20260628_020000",
+        runDir: join(root, ".possum", "runs", "run_20260628_020000"),
+        reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+        findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
+        verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
+      })
+    });
+
+    await program.parseAsync(["node", "possum", "verify-diff", "--url", "http://localhost:3000", "--brief-out", briefOut]);
+
+    await expect(readFile(briefOut, "utf8")).resolves.toContain("Updated pricing CTA");
+  });
+
+  it("supports verify-diff --no-run", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-diff-no-run-"));
+    const briefOut = join(root, "feature.generated.json");
+    const output: string[] = [];
+    let verifyCalled = false;
+    const generatedBrief = {
+      feature: "Added FAQ section",
+      pages: ["/"],
+      setup: [],
+      checks: [{ text: "Homepage shows FAQ section" }]
+    };
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      resolveFeatureVerification: () => ({
+        llm: { async complete() { return { text: "{}" }; } },
+        model: "agent-model",
+        maxSteps: 5,
+        budgetMs: 60_000
+      }),
+      collectGitDiffImpl: async () => ({ source: "working-tree", diff: "diff body", changedFiles: ["app/page.tsx"] }),
+      inferFeatureBriefFromDiffImpl: async () => generatedBrief,
+      verifyFeatureImpl: async () => {
+        verifyCalled = true;
+        throw new Error("verify should not run");
+      }
+    });
+
+    await program.parseAsync([
+      "node",
+      "possum",
+      "verify-diff",
+      "--url",
+      "http://localhost:3000",
+      "--brief-out",
+      briefOut,
+      "--no-run"
+    ]);
+
+    expect(verifyCalled).toBe(false);
+    await expect(readFile(briefOut, "utf8")).resolves.toContain("Added FAQ section");
+    expect(output).toEqual([`Generated feature brief: ${briefOut}`]);
+  });
+
+  it("requires models for verify-diff", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-diff-models-"));
+    const output: string[] = [];
+    const program = buildProgram({ cwd: root, stdout: (line) => output.push(line) });
+
+    await expect(program.parseAsync(["node", "possum", "verify-diff", "--url", "http://localhost:3000"])).rejects.toThrow(
+      "Diff verification requires models in possum.config.json."
+    );
   });
 
   it("prints doctor guidance for missing Playwright system dependencies", async () => {

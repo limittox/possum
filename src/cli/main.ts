@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { Command } from "commander";
 import { realpathSync } from "node:fs";
-import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runAudit } from "../audit/audit.js";
 import {
@@ -13,17 +13,19 @@ import {
   writeStarterPossumConfig
 } from "../config/appConfig.js";
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
+import { collectGitDiff } from "../diff/gitDiff.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
 import { LlmClient } from "../llm/client.js";
 import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
 import { verifyApp } from "../verification/appVerification.js";
+import { inferFeatureBriefFromDiff } from "../verification/diffInference.js";
 import {
   FeatureVerificationResult,
   runFeatureVerification,
   RunFeatureVerificationInput
 } from "../verification/featureVerification.js";
-import { FeatureVerificationBriefSchema } from "../verification/types.js";
+import { FeatureVerificationBrief, FeatureVerificationBriefSchema } from "../verification/types.js";
 import { formatProgressEvent } from "./auditProgress.js";
 
 interface ResolvedFeatureVerificationCliConfig {
@@ -34,6 +36,8 @@ interface ResolvedFeatureVerificationCliConfig {
 }
 
 type VerifyFeatureImpl = (input: RunFeatureVerificationInput) => Promise<FeatureVerificationResult>;
+type InferFeatureBriefFromDiffImpl = typeof inferFeatureBriefFromDiff;
+type CollectGitDiffImpl = typeof collectGitDiff;
 
 export interface CliDependencies {
   cwd: string;
@@ -44,6 +48,8 @@ export interface CliDependencies {
   setExitCode?: (code: number) => void;
   verifyAppImpl?: typeof verifyApp;
   verifyFeatureImpl?: VerifyFeatureImpl;
+  collectGitDiffImpl?: CollectGitDiffImpl;
+  inferFeatureBriefFromDiffImpl?: InferFeatureBriefFromDiffImpl;
   resolveFeatureVerification?: (target: ResolvedAuditTarget) => ResolvedFeatureVerificationCliConfig;
 }
 
@@ -103,6 +109,64 @@ export function buildProgram(deps: CliDependencies): Command {
       deps.stdout(`Possum feature verification created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
       deps.stdout(`Verification: ${result.verificationJsonPath}`);
+    });
+
+  program
+    .command("verify-diff")
+    .description("Infer a feature brief from git diff and verify it in the browser.")
+    .option("--base <base>", "Base ref to compare against instead of auto-detecting a diff")
+    .option("--url <url>", "Local app URL to verify")
+    .option("--command <command>", "Sandboxed command to start the local app before verifying")
+    .option("--brief-out <path>", "Write the generated feature brief to this path")
+    .option("--no-run", "Only generate the feature brief; do not run browser verification")
+    .action(async (options: { base?: string; briefOut?: string; command?: string; run?: boolean; url?: string }) => {
+      const target = await resolveAuditTarget({
+        rootDir: deps.cwd,
+        runCommand: options.command,
+        targetUrl: options.url
+      });
+      const resolved = (deps.resolveFeatureVerification ?? ((resolvedTarget) =>
+        resolveFeatureVerificationFromTarget(resolvedTarget, "Diff verification requires models in possum.config.json.")))(target);
+      const diff = await (deps.collectGitDiffImpl ?? collectGitDiff)({ rootDir: deps.cwd, base: options.base });
+      const brief = await (deps.inferFeatureBriefFromDiffImpl ?? inferFeatureBriefFromDiff)({
+        diff,
+        llm: resolved.llm,
+        model: resolved.model
+      });
+      const briefOut = options.briefOut ? resolve(deps.cwd, options.briefOut) : undefined;
+      if (briefOut) {
+        await writeFeatureBrief(briefOut, brief);
+      }
+
+      if (options.run === false) {
+        const generatedPath = briefOut ?? join(deps.cwd, ".possum", "diff-brief.json");
+        if (!briefOut) {
+          await writeFeatureBrief(generatedPath, brief);
+        }
+        deps.stdout(`Generated feature brief: ${generatedPath}`);
+        return;
+      }
+
+      const emitProgress = deps.stderr;
+      const result = await (deps.verifyFeatureImpl ?? runFeatureVerification)({
+        rootDir: deps.cwd,
+        runCommand: target.runCommand,
+        targetUrl: target.targetUrl,
+        brief,
+        llm: resolved.llm,
+        model: resolved.model,
+        maxSteps: resolved.maxSteps,
+        budgetMs: resolved.budgetMs,
+        now: deps.now,
+        onProgress: emitProgress ? (event) => emitProgress(formatProgressEvent(event)) : undefined
+      });
+      const runBriefPath = join(result.runDir, "diff-brief.json");
+      await writeFeatureBrief(runBriefPath, brief);
+
+      deps.stdout(`Possum diff verification created ${result.runId}`);
+      deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`Verification: ${result.verificationJsonPath}`);
+      deps.stdout(`Generated brief: ${briefOut ?? runBriefPath}`);
     });
 
   program
@@ -204,7 +268,15 @@ export function buildProgram(deps: CliDependencies): Command {
   return program;
 }
 
-function resolveFeatureVerificationFromTarget(target: ResolvedAuditTarget): ResolvedFeatureVerificationCliConfig {
+async function writeFeatureBrief(path: string, brief: FeatureVerificationBrief): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, `${JSON.stringify(brief, null, 2)}\n`, "utf8");
+}
+
+function resolveFeatureVerificationFromTarget(
+  target: ResolvedAuditTarget,
+  missingModelsMessage = "Feature verification requires models in possum.config.json."
+): ResolvedFeatureVerificationCliConfig {
   const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
   const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
   const resolved = resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
@@ -213,7 +285,7 @@ function resolveFeatureVerificationFromTarget(target: ResolvedAuditTarget): Reso
   });
 
   if (!resolved) {
-    throw new Error("Feature verification requires models in possum.config.json.");
+    throw new Error(missingModelsMessage);
   }
 
   return {
