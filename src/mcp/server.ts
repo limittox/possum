@@ -264,6 +264,7 @@ async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencie
     runCommand: target.runCommand,
     targetUrl: target.targetUrl,
     now: dependencies.now,
+    storageState: target.authStorageState,
     claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
       requestTimeoutMs,
       budgetMs
@@ -293,6 +294,7 @@ async function verifyAppTool(rawArgs: unknown, dependencies: PossumMcpDependenci
     runCommand: target.runCommand,
     targetUrl: target.targetUrl,
     now: dependencies.now,
+    storageState: target.authStorageState,
     claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
       requestTimeoutMs,
       budgetMs
@@ -323,7 +325,8 @@ async function verifyFeatureTool(rawArgs: unknown, dependencies: PossumMcpDepend
     model: resolved.model,
     maxSteps: resolved.maxSteps,
     budgetMs: resolved.budgetMs,
-    now: dependencies.now
+    now: dependencies.now,
+    storageState: target.authStorageState
   });
 
   return textResult(`Possum feature verification created ${result.runId}`, {
@@ -355,7 +358,8 @@ async function verifyDiffTool(rawArgs: unknown, dependencies: PossumMcpDependenc
     model: resolved.model,
     maxSteps: resolved.maxSteps,
     budgetMs: resolved.budgetMs,
-    now: dependencies.now
+    now: dependencies.now,
+    storageState: target.authStorageState
   });
   const diffBriefJsonPath = await writeJsonArtifact(createRunStore(rootDir), result.runId, "diff-brief.json", brief);
 

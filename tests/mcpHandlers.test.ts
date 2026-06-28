@@ -1,6 +1,6 @@
 import { createServer } from "node:http";
 import { AddressInfo } from "node:net";
-import { mkdtemp, readFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, describe, expect, it } from "vitest";
@@ -124,6 +124,51 @@ describe("runPossumMcpTool", () => {
     });
   });
 
+  it("passes configured auth storage state to verify_app", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-app-auth-"));
+    await writeFile(
+      join(rootDir, "possum.config.json"),
+      JSON.stringify({
+        target: { url: "http://localhost:3000" },
+        auth: { storageState: ".possum/auth/default.json" }
+      }),
+      "utf8"
+    );
+    let storageState: string | undefined;
+
+    await runPossumMcpTool(
+      "verify_app",
+      { rootDir },
+      {
+        verifyAppImpl: async (input) => {
+          storageState = input.storageState;
+          const runDir = join(rootDir, ".possum", "runs", "run_auth_app");
+          await mkdir(runDir, { recursive: true });
+          await writeFile(
+            join(runDir, "findings.json"),
+            JSON.stringify({
+              runType: "app_verification",
+              runId: "run_auth_app",
+              targetUrl: "http://localhost:3000",
+              startedAt: "2026-06-28T02:00:00.000Z",
+              personas: ["beginner"],
+              findings: []
+            }),
+            "utf8"
+          );
+          return {
+            runId: "run_auth_app",
+            runDir,
+            reportMarkdownPath: join(runDir, "report.md"),
+            findingsJsonPath: join(runDir, "findings.json")
+          };
+        }
+      }
+    );
+
+    expect(storageState).toBe(join(rootDir, ".possum/auth/default.json"));
+  });
+
   it("runs verify_feature with injected dependencies and returns verification summary paths", async () => {
     const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-feature-"));
 
@@ -162,6 +207,44 @@ describe("runPossumMcpTool", () => {
       findingsJsonPath: expect.stringContaining("findings.json"),
       verificationJsonPath: expect.stringContaining("verification.json")
     });
+  });
+
+  it("passes configured auth storage state to verify_feature", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-feature-auth-"));
+    await writeFile(
+      join(rootDir, "possum.config.json"),
+      JSON.stringify({
+        target: { url: "http://localhost:3000" },
+        auth: { storageState: ".possum/auth/default.json" }
+      }),
+      "utf8"
+    );
+    let storageState: string | undefined;
+
+    await runPossumMcpTool(
+      "verify_feature",
+      { rootDir, brief: { feature: "Auth dashboard", checks: [{ text: "Dashboard loads" }] } },
+      {
+        resolveFeatureVerification: () => ({
+          llm: { async complete() { return { text: "{}" }; } },
+          model: "agent-model",
+          maxSteps: 5,
+          budgetMs: 60_000
+        }),
+        verifyFeatureImpl: async (input) => {
+          storageState = input.storageState;
+          return {
+            runId: "run_auth_feature",
+            runDir: join(rootDir, ".possum", "runs", "run_auth_feature"),
+            reportMarkdownPath: join(rootDir, ".possum", "runs", "run_auth_feature", "report.md"),
+            findingsJsonPath: join(rootDir, ".possum", "runs", "run_auth_feature", "findings.json"),
+            verificationJsonPath: join(rootDir, ".possum", "runs", "run_auth_feature", "verification.json")
+          };
+        }
+      }
+    );
+
+    expect(storageState).toBe(join(rootDir, ".possum/auth/default.json"));
   });
 
   it("runs verify_diff with injected dependencies and writes generated brief artifact", async () => {
@@ -219,6 +302,51 @@ describe("runPossumMcpTool", () => {
       verificationJsonPath: expect.stringContaining("verification.json"),
       diffBriefJsonPath: generatedBriefPath
     });
+  });
+
+  it("passes configured auth storage state to verify_diff", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-mcp-verify-diff-auth-"));
+    await writeFile(
+      join(rootDir, "possum.config.json"),
+      JSON.stringify({
+        target: { url: "http://localhost:3000" },
+        auth: { storageState: ".possum/auth/default.json" }
+      }),
+      "utf8"
+    );
+    let storageState: string | undefined;
+
+    await runPossumMcpTool(
+      "verify_diff",
+      { rootDir },
+      {
+        resolveFeatureVerification: () => ({
+          llm: { async complete() { return { text: "{}" }; } },
+          model: "agent-model",
+          maxSteps: 5,
+          budgetMs: 60_000
+        }),
+        collectGitDiffImpl: async () => ({ source: "working-tree", diff: "diff body", changedFiles: ["app/page.tsx"] }),
+        inferFeatureBriefFromDiffImpl: async () => ({
+          feature: "Auth dashboard",
+          pages: [],
+          setup: [],
+          checks: [{ text: "Dashboard loads" }]
+        }),
+        verifyFeatureImpl: async (input) => {
+          storageState = input.storageState;
+          return {
+            runId: "run_auth_diff",
+            runDir: join(rootDir, ".possum", "runs", "run_auth_diff"),
+            reportMarkdownPath: join(rootDir, ".possum", "runs", "run_auth_diff", "report.md"),
+            findingsJsonPath: join(rootDir, ".possum", "runs", "run_auth_diff", "findings.json"),
+            verificationJsonPath: join(rootDir, ".possum", "runs", "run_auth_diff", "verification.json")
+          };
+        }
+      }
+    );
+
+    expect(storageState).toBe(join(rootDir, ".possum/auth/default.json"));
   });
 
   it("returns a replay command for a repro path", async () => {
