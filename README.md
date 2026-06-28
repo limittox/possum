@@ -12,6 +12,7 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 
 - Runs locally against `localhost` with `possum verify-app` or `possum audit`.
 - Verifies completed features with `possum verify-feature --brief feature.json`.
+- Infers feature checks from git changes and verifies them with `possum verify-diff`.
 - Stores app verification settings in `possum.config.json` with `possum init`.
 - Can start a local app for verification from config or with `possum verify-app --command "npm run dev" --url http://localhost:3000`.
 - Simulates beginner, impatient, hostile, and returning customers.
@@ -108,6 +109,18 @@ Use `possum verify-feature --brief feature.json` when a coding agent has just co
 ```
 
 Feature verification is model-backed. It uses the configured LLM to drive the app in the browser, records `passed` / `failed` / `inconclusive` results in `.possum/runs/<runId>/verification.json`, and writes normal Possum finding artifacts for failed checks.
+
+## Diff Verification
+
+Use `possum verify-diff` after changing user-facing behavior. Possum reads git changes, asks the configured model to infer a feature brief, saves that brief, then runs the normal feature verification engine.
+
+```bash
+possum verify-diff
+possum verify-diff --base main
+possum verify-diff --brief-out feature.generated.json --no-run
+```
+
+Default behavior prefers uncommitted working-tree changes. If there are none, Possum compares the current branch against `origin/main`, then `main`. During a full run, the generated brief is saved to `.possum/runs/<runId>/diff-brief.json` so agents and humans can inspect what Possum decided to verify.
 
 ## Claim-vs-Reality Verification
 
