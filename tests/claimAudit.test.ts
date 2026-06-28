@@ -163,4 +163,34 @@ describe("runAudit with claim verification", () => {
     expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
     expect(report.findings.some((finding: { persona: string }) => finding.persona === "claims")).toBe(false);
   }, 30_000);
+
+  it("does not convert claim triage failures into beginner access findings", async () => {
+    const rootDir = await mkdtemp(join(tmpdir(), "possum-claim-audit-triage-error-"));
+    const events: import("../src/audit/progress.js").AuditProgressEvent[] = [];
+    const throwingLlm = {
+      async complete() {
+        throw new Error("claim triage timed out");
+      }
+    };
+
+    const result = await runAudit({
+      rootDir,
+      targetUrl: baseUrl,
+      onProgress: (event) => events.push(event),
+      claimVerification: {
+        llm: throwingLlm,
+        models: { personaModel: "agent-model", judgeModel: "judge-model" },
+        maxSteps: 3,
+        attempts: 2,
+        budgetMs: 60_000
+      }
+    });
+
+    const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
+    expect(report.findings).toEqual([]);
+    expect(events).toContainEqual({ type: "phase-done", phase: "claims", index: 4, total: 4, findings: 0 });
+    expect(events).toContainEqual({ type: "judge-done", accepted: 0, candidates: 0 });
+  }, 30_000);
 });

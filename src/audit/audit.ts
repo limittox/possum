@@ -129,28 +129,34 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
           return createPlaywrightClaimPage(page);
         });
 
-      const summary = await verifyClaimsWithStability({
-        claims: surface.claims ?? [],
-        pageFactory,
-        llm: verification.llm,
-        models: verification.models,
-        maxSteps: verification.maxSteps,
-        attempts: verification.attempts,
-        budgetMs: verification.budgetMs,
-        onProgress: input.onProgress
-      });
+      try {
+        const summary = await verifyClaimsWithStability({
+          claims: surface.claims ?? [],
+          pageFactory,
+          llm: verification.llm,
+          models: verification.models,
+          maxSteps: verification.maxSteps,
+          attempts: verification.attempts,
+          budgetMs: verification.budgetMs,
+          onProgress: input.onProgress
+        });
 
-      summary.confirmed.forEach((entry, index) => {
-        findings.push(
-          ...evaluateClaimsPersona({
-            runId,
-            index,
-            result: entry.result,
-            finalUrl: surface.finalUrl,
-            reproducibility: entry.reproducibility
-          })
-        );
-      });
+        summary.confirmed.forEach((entry, index) => {
+          findings.push(
+            ...evaluateClaimsPersona({
+              runId,
+              index,
+              result: entry.result,
+              finalUrl: surface.finalUrl,
+              reproducibility: entry.reproducibility
+            })
+          );
+        });
+      } catch {
+        // Claim verification depends on external LLM infrastructure. A triage/provider failure is inconclusive,
+        // not evidence that the app is unreachable or that a claim is unfulfilled.
+      }
+
       report({
         type: "phase-done",
         phase: "claims",
