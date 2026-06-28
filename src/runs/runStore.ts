@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { Finding, RunReport, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
 import { renderFindingMarkdown, renderRunMarkdown } from "../report/renderMarkdown.js";
@@ -43,6 +43,18 @@ export async function writeRunReport(store: RunStore, report: RunReport): Promis
   await writeFile(reportMarkdownPath, renderRunMarkdown(parsed), "utf8");
 
   return { runDir, findingsJsonPath, playwrightConfigPath, reportMarkdownPath };
+}
+
+export async function writeJsonArtifact(
+  store: RunStore,
+  runId: string,
+  relativePath: string,
+  data: unknown
+): Promise<string> {
+  const artifactPath = join(store.runsDir, runId, relativePath);
+  await mkdir(dirname(artifactPath), { recursive: true });
+  await writeFile(artifactPath, `${JSON.stringify(data, null, 2)}\n`, "utf8");
+  return artifactPath;
 }
 
 export async function writeSurface(store: RunStore, runId: string, surface: PageSurface): Promise<string> {

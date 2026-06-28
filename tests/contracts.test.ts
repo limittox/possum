@@ -53,3 +53,54 @@ describe("RunReportSchema", () => {
     expect(parsed.findings).toEqual([]);
   });
 });
+
+describe("feature verification contracts", () => {
+  it("accepts feature_verification run reports", () => {
+    const parsed = RunReportSchema.parse({
+      runType: "feature_verification",
+      runId: "run_feature_1",
+      targetUrl: "http://localhost:3000",
+      startedAt: "2026-06-28T00:00:00.000Z",
+      completedAt: "2026-06-28T00:00:01.000Z",
+      personas: ["feature"],
+      findings: []
+    });
+
+    expect(parsed.runType).toBe("feature_verification");
+  });
+
+  it("defaults existing reports to audit run type", () => {
+    const parsed = RunReportSchema.parse({
+      runId: "run_audit_1",
+      targetUrl: "http://localhost:3000",
+      startedAt: "2026-06-28T00:00:00.000Z",
+      personas: ["beginner"],
+      findings: []
+    });
+
+    expect(parsed.runType).toBe("audit");
+  });
+
+  it("accepts feature findings", () => {
+    const parsed = FindingSchema.parse({
+      id: "finding_feature_export_csv_001",
+      runId: "run_feature_1",
+      persona: "feature",
+      severity: "high",
+      confidence: "confirmed",
+      mission: "Verify completed feature behavior in the browser.",
+      claim: "Click Export CSV and confirm a CSV downloads",
+      expected: "A CSV download starts from the Reports page.",
+      actual: "No download started after clicking Export CSV.",
+      reproducibility: { status: "reproduced", attempts: 1 },
+      evidence: {
+        screenshots: [],
+        trace: "findings/finding_feature_export_csv_001/trace.json",
+        repro: "findings/finding_feature_export_csv_001/repro.spec.ts"
+      },
+      dedupeFingerprint: "feature:run_feature_1:check_1"
+    });
+
+    expect(parsed.persona).toBe("feature");
+  });
+});

@@ -2,7 +2,7 @@ import { mkdtemp, readFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
-import { createRunStore, writeRunReport } from "../src/runs/runStore.js";
+import { createRunStore, writeJsonArtifact, writeRunReport } from "../src/runs/runStore.js";
 
 describe("run store", () => {
   it("writes findings.json and report.md under .possum/runs/<id>", async () => {
@@ -25,5 +25,23 @@ describe("run store", () => {
     await expect(readFile(join(written.runDir, "report.md"), "utf8")).resolves.toContain(
       "# Possum Audit run_20260613_120000"
     );
+  });
+});
+
+describe("writeJsonArtifact", () => {
+  it("writes arbitrary run JSON under the run directory", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-run-artifact-"));
+    const store = createRunStore(root);
+
+    const path = await writeJsonArtifact(store, "run_1", "verification.json", {
+      runType: "feature_verification",
+      checks: [{ id: "check_1", verdict: "passed" }]
+    });
+
+    expect(path).toBe(join(root, ".possum", "runs", "run_1", "verification.json"));
+    expect(JSON.parse(await readFile(path, "utf8"))).toEqual({
+      runType: "feature_verification",
+      checks: [{ id: "check_1", verdict: "passed" }]
+    });
   });
 });

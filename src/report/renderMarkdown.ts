@@ -30,7 +30,7 @@ export function renderRunMarkdown(report: RunReport): string {
       : report.findings.map((finding) => `- ${finding.id} (${finding.persona}, ${finding.severity})`);
 
   return [
-    `# Possum Audit ${report.runId}`,
+    formatRunTitle(report),
     "",
     `**Target:** ${report.targetUrl}`,
     `**Started:** ${report.startedAt}`,
@@ -43,4 +43,15 @@ export function renderRunMarkdown(report: RunReport): string {
   ]
     .filter((line): line is string => line !== undefined)
     .join("\n");
+}
+
+function formatRunTitle(report: RunReport): string {
+  switch (report.runType) {
+    case "feature_verification":
+      return `# Possum Feature Verification ${report.runId}`;
+    case "app_verification":
+      return `# Possum App Verification ${report.runId}`;
+    case "audit":
+      return `# Possum Audit ${report.runId}`;
+  }
 }

@@ -3,6 +3,7 @@ import { PersonaSchema } from "./config.js";
 
 export const SeveritySchema = z.enum(["low", "medium", "high", "critical"]);
 export const ConfidenceSchema = z.enum(["candidate", "confirmed"]);
+export const RunTypeSchema = z.enum(["audit", "app_verification", "feature_verification"]);
 
 export const FindingSchema = z.object({
   id: z.string().min(1),
@@ -27,6 +28,7 @@ export const FindingSchema = z.object({
 });
 
 export const RunReportSchema = z.object({
+  runType: RunTypeSchema.default("audit"),
   runId: z.string().min(1),
   targetUrl: z.string().url(),
   startedAt: z.string().datetime(),
@@ -37,5 +39,6 @@ export const RunReportSchema = z.object({
 
 export type Severity = z.infer<typeof SeveritySchema>;
 export type Confidence = z.infer<typeof ConfidenceSchema>;
+export type RunType = z.infer<typeof RunTypeSchema>;
 export type Finding = z.infer<typeof FindingSchema>;
 export type RunReport = z.infer<typeof RunReportSchema>;
