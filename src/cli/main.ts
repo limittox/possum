@@ -5,12 +5,29 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runAudit } from "../audit/audit.js";
-import { POSSUM_CONFIG_FILENAME, resolveAuditTarget, writeStarterPossumConfig } from "../config/appConfig.js";
+import { POSSUM_CONFIG_FILENAME, ResolvedAuditTarget, resolveAuditTarget, writeStarterPossumConfig } from "../config/appConfig.js";
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
+import { LlmClient } from "../llm/client.js";
 import { resolveClaimVerification } from "../llm/resolveLlmClient.js";
+import { verifyApp } from "../verification/appVerification.js";
+import {
+  FeatureVerificationResult,
+  runFeatureVerification,
+  RunFeatureVerificationInput
+} from "../verification/featureVerification.js";
+import { FeatureVerificationBriefSchema } from "../verification/types.js";
 import { formatProgressEvent } from "./auditProgress.js";
+
+interface ResolvedFeatureVerificationCliConfig {
+  llm: LlmClient;
+  model: string;
+  maxSteps: number;
+  budgetMs: number;
+}
+
+type VerifyFeatureImpl = (input: RunFeatureVerificationInput) => Promise<FeatureVerificationResult>;
 
 export interface CliDependencies {
   cwd: string;
@@ -19,6 +36,9 @@ export interface CliDependencies {
   execFile?: ReplayExecFile;
   now?: Date;
   setExitCode?: (code: number) => void;
+  verifyAppImpl?: typeof verifyApp;
+  verifyFeatureImpl?: VerifyFeatureImpl;
+  resolveFeatureVerification?: (target: ResolvedAuditTarget) => ResolvedFeatureVerificationCliConfig;
 }
 
 export function buildProgram(deps: CliDependencies): Command {
@@ -41,6 +61,71 @@ export function buildProgram(deps: CliDependencies): Command {
       const configPath = await writeStarterPossumConfig(deps.cwd);
       deps.stdout(`Created ${POSSUM_CONFIG_FILENAME}`);
       deps.stdout(`Config: ${configPath}`);
+    });
+
+  program
+    .command("verify-feature")
+    .description("Verify a completed feature from a JSON brief.")
+    .requiredOption("--brief <path>", "Path to feature verification brief JSON")
+    .option("--url <url>", "Local app URL to verify")
+    .option("--command <command>", "Sandboxed command to start the local app before verifying")
+    .action(async (options: { brief: string; command?: string; url?: string }) => {
+      const target = await resolveAuditTarget({
+        rootDir: deps.cwd,
+        runCommand: options.command,
+        targetUrl: options.url
+      });
+      const rawBrief = JSON.parse(await readFile(options.brief, "utf8"));
+      const brief = FeatureVerificationBriefSchema.parse(rawBrief);
+      const resolved = (deps.resolveFeatureVerification ?? resolveFeatureVerificationFromTarget)(target);
+      const result = await (deps.verifyFeatureImpl ?? runFeatureVerification)({
+        rootDir: deps.cwd,
+        runCommand: target.runCommand,
+        targetUrl: target.targetUrl,
+        brief,
+        llm: resolved.llm,
+        model: resolved.model,
+        maxSteps: resolved.maxSteps,
+        budgetMs: resolved.budgetMs,
+        now: deps.now
+      });
+
+      deps.stdout(`Possum feature verification created ${result.runId}`);
+      deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`Verification: ${result.verificationJsonPath}`);
+    });
+
+  program
+    .command("verify-app")
+    .description("Verify app behavior using Possum's app verification workflow.")
+    .option("--url <url>", "Local app URL to verify")
+    .option("--command <command>", "Sandboxed command to start the local app before verifying")
+    .action(async (options: { command?: string; url?: string }) => {
+      const target = await resolveAuditTarget({
+        rootDir: deps.cwd,
+        runCommand: options.command,
+        targetUrl: options.url
+      });
+      const emitProgress = deps.stderr;
+      const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
+      const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
+      const result = await (deps.verifyAppImpl ?? verifyApp)({
+        rootDir: deps.cwd,
+        runCommand: target.runCommand,
+        targetUrl: target.targetUrl,
+        now: deps.now,
+        claimVerification: resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
+          requestTimeoutMs,
+          budgetMs
+        }),
+        onProgress: emitProgress ? (event) => emitProgress(formatProgressEvent(event)) : undefined
+      });
+
+      deps.stdout(`Possum app verification created ${result.runId}`);
+      deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      if (result.surfaceJsonPath) {
+        deps.stdout(`Surface: ${result.surfaceJsonPath}`);
+      }
     });
 
   program
@@ -107,6 +192,26 @@ export function buildProgram(deps: CliDependencies): Command {
   });
 
   return program;
+}
+
+function resolveFeatureVerificationFromTarget(target: ResolvedAuditTarget): ResolvedFeatureVerificationCliConfig {
+  const requestTimeoutMs = (target.requestTimeoutSeconds ?? 60) * 1000;
+  const budgetMs = (target.maxMinutesPerPersona ?? 5) * 60_000;
+  const resolved = resolveClaimVerification(target.models, target.maxStepsPerPersona ?? 30, {
+    requestTimeoutMs,
+    budgetMs
+  });
+
+  if (!resolved) {
+    throw new Error("Feature verification requires models in possum.config.json.");
+  }
+
+  return {
+    llm: resolved.llm,
+    model: resolved.models.personaModel,
+    maxSteps: resolved.maxSteps,
+    budgetMs: resolved.budgetMs
+  };
 }
 
 export function isCliEntrypoint(importMetaUrl: string, argvPath: string | undefined): boolean {

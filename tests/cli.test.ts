@@ -93,6 +93,62 @@ describe("CLI", () => {
     expect(exitCodes).toEqual([1]);
   });
 
+  it("runs verify-app and prints app verification result paths", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-app-"));
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      now: new Date("2026-06-28T02:00:00.000Z")
+    });
+
+    await program.parseAsync(["node", "possum", "verify-app", "--url", "http://127.0.0.1:9"]);
+
+    expect(output.join("\n")).toContain("Possum app verification created run_20260628_020000");
+    expect(output.join("\n")).toContain("Report:");
+  });
+
+  it("runs verify-feature from a brief file using injected dependencies", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-verify-feature-"));
+    const briefPath = join(root, "feature.json");
+    await writeFile(
+      briefPath,
+      JSON.stringify({ feature: "Added CSV export", checks: [{ text: "Export CSV button is visible" }] }),
+      "utf8"
+    );
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line),
+      now: new Date("2026-06-28T02:00:00.000Z"),
+      resolveFeatureVerification: () => ({
+        llm: {
+          async complete() {
+            return { text: "{}" };
+          }
+        },
+        model: "agent-model",
+        maxSteps: 5,
+        budgetMs: 60_000
+      }),
+      verifyFeatureImpl: async () => ({
+        runId: "run_20260628_020000",
+        runDir: join(root, ".possum", "runs", "run_20260628_020000"),
+        reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+        findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
+        verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
+      })
+    });
+
+    await program.parseAsync(["node", "possum", "verify-feature", "--url", "http://localhost:3000", "--brief", briefPath]);
+
+    expect(output).toEqual([
+      "Possum feature verification created run_20260628_020000",
+      `Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.md")}`,
+      `Verification: ${join(root, ".possum", "runs", "run_20260628_020000", "verification.json")}`
+    ]);
+  });
+
   it("prints doctor guidance for missing Playwright system dependencies", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-cli-doctor-"));
     const output: string[] = [];
