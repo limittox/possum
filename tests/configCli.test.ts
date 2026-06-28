@@ -25,6 +25,49 @@ describe("CLI app config", () => {
     expect(output.join("\n")).toContain("Created possum.config.json");
   });
 
+  it("initializes .gitignore to exclude Possum run artifacts", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-init-gitignore-"));
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line)
+    });
+
+    await program.parseAsync(["node", "possum", "init"]);
+
+    await expect(readFile(join(root, ".gitignore"), "utf8")).resolves.toBe(".possum/runs/\n");
+  });
+
+  it("appends Possum run artifacts to an existing .gitignore once", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-init-existing-gitignore-"));
+    await writeFile(join(root, ".gitignore"), "node_modules\n.next\n", "utf8");
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line)
+    });
+
+    await program.parseAsync(["node", "possum", "init"]);
+
+    const gitignore = await readFile(join(root, ".gitignore"), "utf8");
+    expect(gitignore).toBe("node_modules\n.next\n\n.possum/runs/\n");
+  });
+
+  it("does not duplicate an existing Possum run artifact ignore", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-init-duplicate-gitignore-"));
+    await writeFile(join(root, ".gitignore"), "node_modules\n.possum/runs/\n", "utf8");
+    const output: string[] = [];
+    const program = buildProgram({
+      cwd: root,
+      stdout: (line) => output.push(line)
+    });
+
+    await program.parseAsync(["node", "possum", "init"]);
+
+    const gitignore = await readFile(join(root, ".gitignore"), "utf8");
+    expect(gitignore.match(/^\.possum\/runs\/$/gm)).toHaveLength(1);
+  });
+
   it("runs audit from possum.config.json when --url is omitted", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-cli-config-audit-"));
     const output: string[] = [];

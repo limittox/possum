@@ -6,6 +6,7 @@ import { PossumConfig, PossumConfigSchema } from "../contracts/config.js";
 export type ResolvedModelsConfig = PossumConfig["models"];
 
 export const POSSUM_CONFIG_FILENAME = "possum.config.json";
+export const POSSUM_RUNS_GITIGNORE_ENTRY = ".possum/runs/";
 
 export interface AuditTargetInput {
   rootDir: string;
@@ -36,6 +37,27 @@ export async function writeStarterPossumConfig(rootDir: string): Promise<string>
   await mkdir(dirname(configPath), { recursive: true });
   await writeFile(configPath, `${JSON.stringify(createStarterPossumConfig(), null, 2)}\n`, { flag: "wx" });
   return configPath;
+}
+
+export async function ensurePossumRunArtifactsIgnored(rootDir: string): Promise<string> {
+  const gitignorePath = join(rootDir, ".gitignore");
+  let current = "";
+
+  try {
+    current = await readFile(gitignorePath, "utf8");
+  } catch (error) {
+    if (!isNodeError(error) || error.code !== "ENOENT") {
+      throw error;
+    }
+  }
+
+  if (isPossumRunsIgnored(current)) {
+    return gitignorePath;
+  }
+
+  const separator = current.length === 0 ? "" : current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
+  await writeFile(gitignorePath, `${current}${separator}${POSSUM_RUNS_GITIGNORE_ENTRY}\n`, "utf8");
+  return gitignorePath;
 }
 
 export async function readPossumConfig(rootDir: string): Promise<PossumConfig | undefined> {
@@ -92,6 +114,13 @@ export async function resolveAuditTarget(input: AuditTargetInput): Promise<Resol
 
 export function getPossumConfigPath(rootDir: string): string {
   return join(rootDir, POSSUM_CONFIG_FILENAME);
+}
+
+function isPossumRunsIgnored(gitignore: string): boolean {
+  return gitignore
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .some((line) => line === POSSUM_RUNS_GITIGNORE_ENTRY || line === `/${POSSUM_RUNS_GITIGNORE_ENTRY}` || line === ".possum/" || line === "/.possum/");
 }
 
 function formatZodIssue(issue: ZodError["issues"][number]): string {

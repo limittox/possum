@@ -5,7 +5,13 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runAudit } from "../audit/audit.js";
-import { POSSUM_CONFIG_FILENAME, ResolvedAuditTarget, resolveAuditTarget, writeStarterPossumConfig } from "../config/appConfig.js";
+import {
+  ensurePossumRunArtifactsIgnored,
+  POSSUM_CONFIG_FILENAME,
+  ResolvedAuditTarget,
+  resolveAuditTarget,
+  writeStarterPossumConfig
+} from "../config/appConfig.js";
 import { checkPlaywrightSystemDependencies, renderDoctorReport } from "../doctor/doctor.js";
 import { startPossumMcpServer } from "../mcp/server.js";
 import { ReplayExecFile, runReplay } from "../replay/replayCommand.js";
@@ -59,8 +65,10 @@ export function buildProgram(deps: CliDependencies): Command {
     .description("Create a starter possum.config.json for this app.")
     .action(async () => {
       const configPath = await writeStarterPossumConfig(deps.cwd);
+      const gitignorePath = await ensurePossumRunArtifactsIgnored(deps.cwd);
       deps.stdout(`Created ${POSSUM_CONFIG_FILENAME}`);
       deps.stdout(`Config: ${configPath}`);
+      deps.stdout(`Gitignore: ${gitignorePath}`);
     });
 
   program
