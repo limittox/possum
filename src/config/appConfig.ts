@@ -1,5 +1,5 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, resolve } from "node:path";
 import { ZodError } from "zod";
 import { PossumConfig, PossumConfigSchema } from "../contracts/config.js";
 
@@ -7,6 +7,8 @@ export type ResolvedModelsConfig = PossumConfig["models"];
 
 export const POSSUM_CONFIG_FILENAME = "possum.config.json";
 export const POSSUM_RUNS_GITIGNORE_ENTRY = ".possum/runs/";
+export const POSSUM_AUTH_GITIGNORE_ENTRY = ".possum/auth/";
+const POSSUM_ARTIFACT_GITIGNORE_ENTRIES = [POSSUM_RUNS_GITIGNORE_ENTRY, POSSUM_AUTH_GITIGNORE_ENTRY] as const;
 
 export interface AuditTargetInput {
   rootDir: string;
@@ -21,6 +23,7 @@ export interface ResolvedAuditTarget {
   maxStepsPerPersona?: number;
   maxMinutesPerPersona?: number;
   requestTimeoutSeconds?: number;
+  authStorageState?: string;
 }
 
 export function createStarterPossumConfig(): Pick<PossumConfig, "target"> {
@@ -51,12 +54,13 @@ export async function ensurePossumRunArtifactsIgnored(rootDir: string): Promise<
     }
   }
 
-  if (isPossumRunsIgnored(current)) {
+  const missingEntries = POSSUM_ARTIFACT_GITIGNORE_ENTRIES.filter((entry) => !isPossumArtifactIgnored(current, entry));
+  if (missingEntries.length === 0) {
     return gitignorePath;
   }
 
   const separator = current.length === 0 ? "" : current.endsWith("\n\n") ? "" : current.endsWith("\n") ? "\n" : "\n\n";
-  await writeFile(gitignorePath, `${current}${separator}${POSSUM_RUNS_GITIGNORE_ENTRY}\n`, "utf8");
+  await writeFile(gitignorePath, `${current}${separator}${missingEntries.join("\n")}\n`, "utf8");
   return gitignorePath;
 }
 
@@ -108,7 +112,8 @@ export async function resolveAuditTarget(input: AuditTargetInput): Promise<Resol
     models: config?.models,
     maxStepsPerPersona: config?.budgets?.maxStepsPerPersona,
     maxMinutesPerPersona: config?.budgets?.maxMinutesPerPersona,
-    requestTimeoutSeconds: config?.budgets?.requestTimeoutSeconds
+    requestTimeoutSeconds: config?.budgets?.requestTimeoutSeconds,
+    authStorageState: config?.auth?.storageState ? resolveStorageStatePath(input.rootDir, config.auth.storageState) : undefined
   };
 }
 
@@ -116,11 +121,15 @@ export function getPossumConfigPath(rootDir: string): string {
   return join(rootDir, POSSUM_CONFIG_FILENAME);
 }
 
-function isPossumRunsIgnored(gitignore: string): boolean {
+function resolveStorageStatePath(rootDir: string, storageState: string): string {
+  return isAbsolute(storageState) ? storageState : resolve(rootDir, storageState);
+}
+
+function isPossumArtifactIgnored(gitignore: string, entry: string): boolean {
   return gitignore
     .split(/\r?\n/)
     .map((line) => line.trim())
-    .some((line) => line === POSSUM_RUNS_GITIGNORE_ENTRY || line === `/${POSSUM_RUNS_GITIGNORE_ENTRY}` || line === ".possum/" || line === "/.possum/");
+    .some((line) => line === entry || line === `/${entry}` || line === ".possum/" || line === "/.possum/");
 }
 
 function formatZodIssue(issue: ZodError["issues"][number]): string {

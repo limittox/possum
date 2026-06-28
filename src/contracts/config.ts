@@ -21,6 +21,11 @@ export const PossumConfigSchema = z.object({
       personaModel: z.string(),
       judgeModel: z.string().optional()
     })
+    .optional(),
+  auth: z
+    .object({
+      storageState: z.string().min(1)
+    })
     .optional()
 });
 
