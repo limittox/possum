@@ -42,3 +42,4 @@ export type Confidence = z.infer<typeof ConfidenceSchema>;
 export type RunType = z.infer<typeof RunTypeSchema>;
 export type Finding = z.infer<typeof FindingSchema>;
 export type RunReport = z.infer<typeof RunReportSchema>;
+export type RunReportInput = z.input<typeof RunReportSchema>;

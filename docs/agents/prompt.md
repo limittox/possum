@@ -7,9 +7,11 @@ Possum is available in this repository as the local customer simulator.
 
 After implementing a task, decide whether the change affects customer-facing behavior. Customer-facing behavior includes pages, navigation, onboarding, forms, auth, checkout, settings, empty states, user-visible errors, and product claims in README/homepage/copy.
 
+If you just completed a specific feature, prefer `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks. Use `possum verify-app` for broader app health checks.
+
 If the change is customer-facing and `possum.config.json` exists, run:
 
-possum audit
+possum verify-app
 
 Inspect the generated `.possum/runs/<runId>/report.md`. For each relevant confirmed finding, inspect its trace, screenshots, and generated Playwright repro. Use the finding as repair evidence, fix the app, and then verify with:
 
@@ -17,7 +19,7 @@ possum replay <reproPath>
 
 or run another:
 
-possum audit
+possum verify-app
 
 If `possum.config.json` does not exist, do not guess the app URL or startup command. Suggest running:
 
@@ -27,6 +29,8 @@ Skip Possum for documentation-only changes, internal refactors, test-only change
 
 If the Possum MCP server is configured, prefer MCP tools for structured access:
 
+- verify_feature
+- verify_app
 - run_audit
 - get_report
 - list_findings

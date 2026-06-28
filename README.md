@@ -10,9 +10,10 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 
 ## What It Does
 
-- Runs locally against `localhost` with `possum audit`.
-- Stores app audit settings in `possum.config.json` with `possum init`.
-- Can start a local app for an audit from config or with `possum audit --command "npm run dev" --url http://localhost:3000`.
+- Runs locally against `localhost` with `possum verify-app` or `possum audit`.
+- Verifies completed features with `possum verify-feature --brief feature.json`.
+- Stores app verification settings in `possum.config.json` with `possum init`.
+- Can start a local app for verification from config or with `possum verify-app --command "npm run dev" --url http://localhost:3000`.
 - Simulates beginner, impatient, hostile, and returning customers.
 - Tests claim-vs-reality from README, homepage, and product copy (opt-in, when a model is configured).
 - Writes plain-file evidence under `.possum/runs/<id>`.
@@ -38,12 +39,12 @@ The agent loop should look like:
 
 1. Coding agent implements the requested change.
 2. Coding agent decides whether the change affects a customer-facing workflow.
-3. If useful, it runs `possum audit` from a repo with `possum.config.json`.
+3. If it completed a specific feature, it runs `possum verify-feature --brief feature.json`; for broader app health, it runs `possum verify-app`.
 4. Possum writes findings, reports, screenshots, traces, and repro scripts.
 5. Coding agent fixes any relevant finding.
 6. Coding agent runs `possum replay <reproPath>` to verify the customer failure no longer reproduces.
 
-The MCP server exposes the same workflow through `run_audit`, `list_findings`, `get_finding`, `get_report`, and `replay_finding`, so coding agents can invoke Possum without shell-specific glue. After `possum init`, MCP `run_audit` can be called with just the repository root. Explicit MCP parameters still override config values.
+The MCP server exposes the same workflow through `verify_feature`, `verify_app`, `run_audit`, `list_findings`, `get_finding`, `get_report`, and `replay_finding`, so coding agents can invoke Possum without shell-specific glue. After `possum init`, MCP `verify_app` or `run_audit` can be called with just the repository root. Explicit MCP parameters still override config values.
 
 ## App Config
 
@@ -64,7 +65,7 @@ This writes:
 }
 ```
 
-Then run the configured audit:
+Then run configured app verification:
 
 ```bash
 possum audit
@@ -75,13 +76,38 @@ possum audit
 Explicit flags override config values:
 
 ```bash
-possum audit --url http://localhost:5173
-possum audit --command "npm run preview" --url http://localhost:4173
+possum verify-app --url http://localhost:5173
+possum verify-app --command "npm run preview" --url http://localhost:4173
 ```
 
 Commands from config use the same sandbox as `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, or executable paths.
 
 While an audit runs, Possum prints live per-phase progress to stderr (`possum: [1/3] beginner …`, `… judge — 1/1 findings accepted`) so you can see it working. The machine-readable result lines (run id, report path, surface path) go to stdout, so `possum audit > out.txt` keeps that output clean while progress still shows in your terminal.
+
+Commands config same sandbox `--command`: no shell chaining, pipes, redirection, backgrounding, command substitution, newlines, executable paths. While verification runs, Possum prints live progress to stderr and machine-readable result lines (run id, report path, surface path) to stdout.
+
+## Feature Verification
+
+Use `possum verify-feature --brief feature.json` when a coding agent has just completed a specific feature and wants independent browser verification.
+
+```json
+{
+  "feature": "Added CSV export to reports",
+  "pages": ["/reports"],
+  "setup": ["Open the Reports page"],
+  "checks": [
+    {
+      "text": "Click Export CSV and confirm a CSV downloads",
+      "hints": {
+        "clickText": "Export CSV",
+        "expectedDownload": ".csv"
+      }
+    }
+  ]
+}
+```
+
+Feature verification is model-backed. It uses the configured LLM to drive the app in the browser, records `passed` / `failed` / `inconclusive` results in `.possum/runs/<runId>/verification.json`, and writes normal Possum finding artifacts for failed checks.
 
 ## Claim-vs-Reality Verification
 

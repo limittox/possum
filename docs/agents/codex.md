@@ -28,7 +28,7 @@ Review `possum.config.json` and set:
 Add this to the project instructions Codex reads, such as `AGENTS.md`:
 
 ```text
-After changing customer-facing behavior, decide whether persona-based testing would be useful. If this repository has possum.config.json, run `possum audit` after the implementation builds or the app can start. Inspect the generated `.possum/runs/<runId>/report.md`. For each relevant confirmed finding, inspect the finding artifacts and generated repro, fix the app, then run `possum replay <reproPath>` or another `possum audit` to verify the customer failure no longer reproduces. If possum.config.json is missing, suggest running `possum init` instead of guessing the app URL or startup command.
+After changing customer-facing behavior, decide whether browser verification would be useful. If you just completed a specific feature, prefer `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks. Use `possum verify-app` for broader app health checks. If this repository has possum.config.json, `possum audit` remains available as a compatibility alias after the implementation builds or the app can start. Inspect the generated `.possum/runs/<runId>/report.md`. For each relevant confirmed finding, inspect the finding artifacts and generated repro, fix the app, then run `possum replay <reproPath>` or another `possum audit` to verify the customer failure no longer reproduces. If possum.config.json is missing, suggest running `possum init` instead of guessing the app URL or startup command.
 ```
 
 ## CLI Workflow
@@ -36,7 +36,7 @@ After changing customer-facing behavior, decide whether persona-based testing wo
 After Codex finishes a task:
 
 ```bash
-possum audit
+possum verify-app
 ```
 
 Then inspect the report path printed by Possum:
@@ -55,7 +55,7 @@ possum replay .possum/runs/<runId>/findings/<findingId>/repro.spec.ts
 
 If Codex has the Possum MCP server configured, prefer MCP for structured results:
 
-1. Call `run_audit` with the repository root.
+1. Call `verify_app` or `run_audit` with the repository root.
 2. Call `get_report` for the returned `runId`.
 3. Call `list_findings` to get finding summaries.
 4. Call `get_finding` for relevant confirmed findings.

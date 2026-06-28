@@ -1,6 +1,6 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
-import { Finding, RunReport, RunReportSchema } from "../contracts/findings.js";
+import { Finding, RunReport, RunReportInput, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
 import { renderFindingMarkdown, renderRunMarkdown } from "../report/renderMarkdown.js";
 
@@ -30,7 +30,7 @@ export function createRunStore(rootDir: string): RunStore {
   };
 }
 
-export async function writeRunReport(store: RunStore, report: RunReport): Promise<WrittenRun> {
+export async function writeRunReport(store: RunStore, report: RunReportInput): Promise<WrittenRun> {
   const parsed = RunReportSchema.parse(report);
   const runDir = join(store.runsDir, parsed.runId);
   const findingsJsonPath = join(runDir, "findings.json");
