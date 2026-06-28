@@ -1,6 +1,6 @@
 import { join } from "node:path";
 import { Browser, chromium } from "playwright";
-import { Finding } from "../contracts/findings.js";
+import { Finding, RunType } from "../contracts/findings.js";
 import { LlmClient } from "../llm/client.js";
 import { evaluateBeginnerPersona } from "../personas/beginner.js";
 import { evaluateClaimsPersona } from "../personas/claims.js";
@@ -32,6 +32,7 @@ export interface AuditInput {
   runCommand?: string;
   targetUrl: string;
   now?: Date;
+  runType?: RunType;
   claimVerification?: AuditClaimVerification;
   onProgress?: (event: AuditProgressEvent) => void;
 }
@@ -170,6 +171,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
 
   const completedAt = new Date();
   const written = await writeRunReport(store, {
+    runType: input.runType ?? "audit",
     runId,
     targetUrl: input.targetUrl,
     startedAt: now.toISOString(),
