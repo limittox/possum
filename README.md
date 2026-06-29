@@ -16,11 +16,12 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 - Records login state with `possum auth record` for authenticated verification.
 - Stores app verification settings in `possum.config.json` with `possum init`.
 - Can start a local app for verification from config or with `possum verify-app --command "npm run dev" --url http://localhost:3000`.
-- Simulates beginner, impatient, hostile, and returning customers.
+- Simulates beginner, impatient, hostile, keyboard-only, and returning customers.
+- Checks keyboard accessibility basics such as tab reachability, accessible names, and focusable custom controls.
 - Tests claim-vs-reality from README, homepage, and product copy (opt-in, when a model is configured).
 - Writes plain-file evidence under `.possum/runs/<id>`.
 - Produces Markdown and browser-viewable HTML run reports (`report.md`, `report.html`).
-- Produces screenshots, persona traces, findings JSON/Markdown, Playwright repro scripts, `debug.json`, and `repair-hints.md` debugging bundles.
+- Produces screenshots, persona traces, keyboard accessibility traces, findings JSON/Markdown, Playwright repro scripts, `debug.json`, and `repair-hints.md` debugging bundles.
 - Filters findings through the local judge/dedupe gate so reports contain confirmed, reproduced, unique failures.
 - Replays generated repros with `possum replay <reproPath>`.
 - Renders existing runs with `possum report`.

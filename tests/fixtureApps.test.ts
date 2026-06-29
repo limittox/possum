@@ -69,6 +69,10 @@ describe("fixture apps", () => {
     await expect(auditFixture("hostile-server-error")).resolves.toContain("finding_hostile_server_error_001");
   });
 
+  it("keyboard-inaccessible fixture reproduces a keyboard finding", async () => {
+    await expect(auditFixture("keyboard-inaccessible")).resolves.toContain("finding_keyboard_missing_name_001");
+  }, 30_000);
+
   it("claim-unfulfilled-export fixture reproduces the claim-unfulfilled finding", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-claim-unfulfilled-fixture-"));
     const targetUrl = await startFixture("claim-unfulfilled-export");

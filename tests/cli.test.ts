@@ -44,7 +44,7 @@ describe("CLI", () => {
     await program.parseAsync(["node", "possum", "audit", "--url", "http://127.0.0.1:9"]);
 
     // Progress lines go to stderr only.
-    expect(stderr.join("\n")).toContain("possum: [1/3] beginner");
+    expect(stderr.join("\n")).toContain("possum: [1/4] beginner");
     expect(stderr.join("\n")).toContain("possum: judge —");
     // Result lines go to stdout only.
     expect(stdout.join("\n")).toContain("run_20260613_020000");
