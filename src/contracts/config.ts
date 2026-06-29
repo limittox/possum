@@ -1,13 +1,13 @@
 import { z } from "zod";
 
-export const PersonaSchema = z.enum(["beginner", "impatient", "hostile", "returning", "claims", "feature"]);
+export const PersonaSchema = z.enum(["beginner", "impatient", "hostile", "keyboard", "returning", "claims", "feature"]);
 
 export const PossumConfigSchema = z.object({
   target: z.object({
     url: z.string().url(),
     command: z.string().optional()
   }),
-  personas: z.array(PersonaSchema).default(["beginner", "impatient", "hostile"]),
+  personas: z.array(PersonaSchema).default(["beginner", "impatient", "hostile", "keyboard"]),
   budgets: z
     .object({
       maxStepsPerPersona: z.number().int().positive().default(30),
