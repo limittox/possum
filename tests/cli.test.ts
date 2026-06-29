@@ -1,6 +1,6 @@
-import { mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, symlink, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { buildProgram, isCliEntrypoint } from "../src/cli/main.js";
 
@@ -388,6 +388,80 @@ describe("CLI", () => {
     await expect(program.parseAsync(["node", "possum", "verify-diff", "--url", "http://localhost:3000"])).rejects.toThrow(
       "Diff verification requires models in possum.config.json."
     );
+  });
+
+  it("installs Claude Code pack globally by default", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-agent-root-"));
+    const home = await mkdtemp(join(tmpdir(), "possum-cli-agent-home-"));
+    const output: string[] = [];
+    const program = buildProgram({ cwd: root, homeDir: home, stdout: (line) => output.push(line) });
+
+    await program.parseAsync(["node", "possum", "agent", "install", "claude-code"]);
+
+    const skillPath = join(home, ".claude", "skills", "possum-verify", "SKILL.md");
+    await expect(readFile(skillPath, "utf8")).resolves.toContain("possum verify-diff");
+    expect(output).toEqual([
+      "Installed global Claude Code Possum verification skill:",
+      "- ~/.claude/skills/possum-verify/SKILL.md",
+      "",
+      "Next steps:",
+      "- Restart Claude Code if ~/.claude/skills did not exist when the session started.",
+      "- Ask Claude Code to use /possum-verify after customer-facing changes."
+    ]);
+  });
+
+  it("installs Claude Code pack into project when requested", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-agent-project-"));
+    const home = await mkdtemp(join(tmpdir(), "possum-cli-agent-home-"));
+    const output: string[] = [];
+    const program = buildProgram({ cwd: root, homeDir: home, stdout: (line) => output.push(line) });
+
+    await program.parseAsync(["node", "possum", "agent", "install", "claude-code", "--project"]);
+
+    const skillPath = join(root, ".claude", "skills", "possum-verify", "SKILL.md");
+    await expect(readFile(skillPath, "utf8")).resolves.toContain("possum verify-app");
+    expect(output).toEqual([
+      "Installed project Claude Code Possum verification skill:",
+      "- .claude/skills/possum-verify/SKILL.md"
+    ]);
+  });
+
+  it("does not overwrite existing Claude Code pack without force", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-agent-skip-"));
+    const home = await mkdtemp(join(tmpdir(), "possum-cli-agent-home-"));
+    const output: string[] = [];
+    const skillPath = join(home, ".claude", "skills", "possum-verify", "SKILL.md");
+    await mkdir(dirname(skillPath), { recursive: true });
+    await writeFile(skillPath, "custom skill", "utf8");
+    const program = buildProgram({ cwd: root, homeDir: home, stdout: (line) => output.push(line) });
+
+    await program.parseAsync(["node", "possum", "agent", "install", "claude-code"]);
+
+    await expect(readFile(skillPath, "utf8")).resolves.toBe("custom skill");
+    expect(output).toEqual([
+      "Skipped existing Claude Code skill with different content:",
+      "- ~/.claude/skills/possum-verify/SKILL.md",
+      "",
+      "Re-run with --force to overwrite."
+    ]);
+  });
+
+  it("overwrites existing Claude Code pack with force", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-cli-agent-force-"));
+    const home = await mkdtemp(join(tmpdir(), "possum-cli-agent-home-"));
+    const output: string[] = [];
+    const skillPath = join(root, ".claude", "skills", "possum-verify", "SKILL.md");
+    await mkdir(dirname(skillPath), { recursive: true });
+    await writeFile(skillPath, "custom project skill", "utf8");
+    const program = buildProgram({ cwd: root, homeDir: home, stdout: (line) => output.push(line) });
+
+    await program.parseAsync(["node", "possum", "agent", "install", "claude-code", "--project", "--force"]);
+
+    await expect(readFile(skillPath, "utf8")).resolves.toContain("possum verify-feature --brief");
+    expect(output).toEqual([
+      "Overwrote project Claude Code Possum verification skill:",
+      "- .claude/skills/possum-verify/SKILL.md"
+    ]);
   });
 
   it("prints doctor guidance for missing Playwright system dependencies", async () => {

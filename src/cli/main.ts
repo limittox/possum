@@ -2,8 +2,14 @@
 import { Command } from "commander";
 import { realpathSync } from "node:fs";
 import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { homedir } from "node:os";
 import { dirname, isAbsolute, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  ClaudeCodePackScope,
+  installClaudeCodeVerificationPack,
+  InstallClaudeCodeVerificationPackResult
+} from "../agents/claudeCodePack.js";
 import { runAudit } from "../audit/audit.js";
 import {
   getAuthStorageStatePath,
@@ -49,6 +55,7 @@ type RecordAuthSessionImpl = (input: RecordAuthSessionInput) => Promise<RecordAu
 
 export interface CliDependencies {
   cwd: string;
+  homeDir?: string;
   stdout: (line: string) => void;
   stderr?: (line: string) => void;
   execFile?: ReplayExecFile;
@@ -85,6 +92,27 @@ export function buildProgram(deps: CliDependencies): Command {
       deps.stdout(`Created ${POSSUM_CONFIG_FILENAME}`);
       deps.stdout(`Config: ${configPath}`);
       deps.stdout(`Gitignore: ${gitignorePath}`);
+    });
+
+  const agentCommand = program.command("agent").description("Install coding agent integrations.");
+  const agentInstallCommand = agentCommand.command("install").description("Install an agent integration pack.");
+
+  agentInstallCommand
+    .command("claude-code")
+    .description("Install the Claude Code Possum verification skill.")
+    .option("--project", "Install into this project instead of ~/.claude")
+    .option("--force", "Overwrite an existing possum-verify skill")
+    .action(async (options: { force?: boolean; project?: boolean }) => {
+      const result = await installClaudeCodeVerificationPack({
+        rootDir: deps.cwd,
+        homeDir: deps.homeDir ?? homedir(),
+        scope: options.project ? "project" : "global",
+        force: options.force
+      });
+
+      for (const line of formatClaudeCodePackInstallOutput(result)) {
+        deps.stdout(line);
+      }
     });
 
   const authCommand = program.command("auth").description("Manage browser auth sessions.");
@@ -326,6 +354,42 @@ export function buildProgram(deps: CliDependencies): Command {
   });
 
   return program;
+}
+
+function formatClaudeCodePackInstallOutput(result: InstallClaudeCodeVerificationPackResult): string[] {
+  const scopeLabel = result.scope === "global" ? "global" : "project";
+  const displayPath = getClaudeCodePackDisplayPath(result.scope);
+
+  if (result.status === "skipped") {
+    return [
+      "Skipped existing Claude Code skill with different content:",
+      `- ${displayPath}`,
+      "",
+      "Re-run with --force to overwrite."
+    ];
+  }
+
+  if (result.status === "unchanged") {
+    return ["Claude Code Possum verification skill already up to date:", `- ${displayPath}`];
+  }
+
+  const verb = result.status === "overwritten" ? "Overwrote" : "Installed";
+  const lines = [`${verb} ${scopeLabel} Claude Code Possum verification skill:`, `- ${displayPath}`];
+
+  if (result.scope === "global" && result.status === "installed") {
+    lines.push(
+      "",
+      "Next steps:",
+      "- Restart Claude Code if ~/.claude/skills did not exist when the session started.",
+      "- Ask Claude Code to use /possum-verify after customer-facing changes."
+    );
+  }
+
+  return lines;
+}
+
+function getClaudeCodePackDisplayPath(scope: ClaudeCodePackScope): string {
+  return scope === "global" ? "~/.claude/skills/possum-verify/SKILL.md" : ".claude/skills/possum-verify/SKILL.md";
 }
 
 async function writeFeatureBrief(path: string, brief: FeatureVerificationBrief): Promise<void> {
