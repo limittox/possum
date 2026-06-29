@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.5.0 - 2026-06-30
+
+### Added
+
+- Static per-run HTML reports at `.possum/runs/<runId>/report.html`.
+- CLI output and MCP structured responses now include `reportHtmlPath` when runs produce HTML reports.
+- `possum agent install claude-code` installs a global Claude Code `possum-verify` skill.
+- `possum agent install claude-code --project` installs the same skill into the current project.
+- Claude Code verification pack installer is non-destructive and supports `--force` for intentional overwrite.
+
+### Changed
+
+- README and Claude Code agent docs now recommend the Claude Code verification pack.
+- Run report docs now describe both Markdown and browser-viewable HTML reports.
+
 ## 0.4.0 - 2026-06-28
 
 ### Added
