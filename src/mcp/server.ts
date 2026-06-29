@@ -275,6 +275,7 @@ async function runAuditTool(rawArgs: unknown, dependencies: PossumMcpDependencie
     runId: result.runId,
     targetUrl: target.targetUrl,
     reportMarkdownPath: result.reportMarkdownPath,
+    reportHtmlPath: result.reportHtmlPath,
     findingsJsonPath: result.findingsJsonPath,
     surfaceJsonPath: result.surfaceJsonPath,
     findingsCount: report.findings.length
@@ -305,6 +306,7 @@ async function verifyAppTool(rawArgs: unknown, dependencies: PossumMcpDependenci
   return textResult(`Possum app verification created ${result.runId}`, {
     runId: result.runId,
     reportMarkdownPath: result.reportMarkdownPath,
+    reportHtmlPath: result.reportHtmlPath,
     findingsJsonPath: result.findingsJsonPath,
     surfaceJsonPath: result.surfaceJsonPath,
     findings: report.findings
@@ -332,6 +334,7 @@ async function verifyFeatureTool(rawArgs: unknown, dependencies: PossumMcpDepend
   return textResult(`Possum feature verification created ${result.runId}`, {
     runId: result.runId,
     reportMarkdownPath: result.reportMarkdownPath,
+    reportHtmlPath: result.reportHtmlPath,
     findingsJsonPath: result.findingsJsonPath,
     verificationJsonPath: result.verificationJsonPath
   });
@@ -366,6 +369,7 @@ async function verifyDiffTool(rawArgs: unknown, dependencies: PossumMcpDependenc
   return textResult(`Possum diff verification created ${result.runId}`, {
     runId: result.runId,
     reportMarkdownPath: result.reportMarkdownPath,
+    reportHtmlPath: result.reportHtmlPath,
     findingsJsonPath: result.findingsJsonPath,
     verificationJsonPath: result.verificationJsonPath,
     diffBriefJsonPath

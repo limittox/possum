@@ -55,6 +55,7 @@ describe("runPossumMcpTool", () => {
     expect(result.structuredContent).toMatchObject({
       runId: "run_20260613_020000",
       targetUrl,
+      reportHtmlPath: expect.stringContaining("report.html"),
       findingsCount: 0
     });
     expect(result.content[0]).toMatchObject({
@@ -82,6 +83,7 @@ describe("runPossumMcpTool", () => {
     expect(result.structuredContent).toMatchObject({
       runId: "run_20260613_020000",
       targetUrl,
+      reportHtmlPath: expect.stringContaining("report.html"),
       findingsCount: 1
     });
 
@@ -120,6 +122,7 @@ describe("runPossumMcpTool", () => {
     expect(result.structuredContent).toMatchObject({
       runId: "run_20260628_020000",
       reportMarkdownPath: expect.stringContaining("report.md"),
+      reportHtmlPath: expect.stringContaining("report.html"),
       findingsJsonPath: expect.stringContaining("findings.json")
     });
   });
@@ -206,6 +209,7 @@ describe("runPossumMcpTool", () => {
     expect(result.structuredContent).toMatchObject({
       runId: "run_20260628_020000",
       reportMarkdownPath: expect.stringContaining("report.md"),
+      reportHtmlPath: expect.stringContaining("report.html"),
       findingsJsonPath: expect.stringContaining("findings.json"),
       verificationJsonPath: expect.stringContaining("verification.json")
     });
@@ -302,6 +306,7 @@ describe("runPossumMcpTool", () => {
     expect(result.structuredContent).toMatchObject({
       runId: "run_20260628_020000",
       reportMarkdownPath: expect.stringContaining("report.md"),
+      reportHtmlPath: expect.stringContaining("report.html"),
       findingsJsonPath: expect.stringContaining("findings.json"),
       verificationJsonPath: expect.stringContaining("verification.json"),
       diffBriefJsonPath: generatedBriefPath
