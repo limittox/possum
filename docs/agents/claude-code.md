@@ -23,25 +23,35 @@ Edit `possum.config.json`:
 
 Use `target.command` when Possum should start the app. Omit it when Claude Code or the user starts the app separately.
 
-## Claude Code Instruction
+## Install Claude Code Verification Skill
 
-Add this to the Claude Code project memory or repository instructions:
+Install the Possum Claude Code skill globally so Claude knows Possum exists in every project:
+
+```bash
+possum agent install claude-code
+```
+
+This writes:
 
 ```text
-When you complete a task that changes customer-facing behavior, consider running Possum.
-
-Prefer `possum verify-diff` (or MCP `verify_diff`) after user-facing code changes. Possum will infer feature checks from git diff and verify them in the browser.
-
-If the user supplied explicit acceptance criteria, use `possum verify-feature --brief feature.json` (or MCP `verify_feature`) with the feature description, relevant pages, setup steps, and expected checks.
-
-Use `possum verify-app` (or MCP `verify_app`) for broader app health checks.
-
-If `possum.config.json` exists and the app can be started, `possum audit` remains available as a compatibility alias.
-
-Read the generated `.possum/runs/<runId>/report.md`. Treat confirmed findings as repair inputs, inspect the finding trace/screenshots/repro, fix the app, and verify with `possum replay <reproPath>` or a follow-up Possum verification.
-
-Do not run Possum for documentation-only work, internal refactors, or changes that cannot affect a customer workflow. If config is missing, ask to run `possum init` rather than guessing the app startup command.
+~/.claude/skills/possum-verify/SKILL.md
 ```
+
+For a repository-local skill that can be committed with a project, run:
+
+```bash
+possum agent install claude-code --project
+```
+
+This writes:
+
+```text
+.claude/skills/possum-verify/SKILL.md
+```
+
+The installer is non-destructive. Re-run with `--force` only when you intentionally want to replace an existing `possum-verify` skill.
+
+After installation, ask Claude Code to use `/possum-verify` after customer-facing changes. Claude can also discover the skill when a task affects browser-visible behavior.
 
 ## CLI Workflow
 

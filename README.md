@@ -38,6 +38,34 @@ Agent setup docs:
 - [Claude Code](docs/agents/claude-code.md)
 - [Generic coding-agent prompt](docs/agents/prompt.md)
 
+### Claude Code Verification Pack
+
+Install Possum's Claude Code skill globally so Claude knows Possum exists across projects:
+
+```bash
+possum agent install claude-code
+```
+
+This writes:
+
+```text
+~/.claude/skills/possum-verify/SKILL.md
+```
+
+For a repository-local skill that can be checked into a project, run:
+
+```bash
+possum agent install claude-code --project
+```
+
+This writes:
+
+```text
+.claude/skills/possum-verify/SKILL.md
+```
+
+The installer is non-destructive. If a different `possum-verify` skill already exists, Possum skips it unless you pass `--force`.
+
 The agent loop should look like:
 
 1. Coding agent implements the requested change.
