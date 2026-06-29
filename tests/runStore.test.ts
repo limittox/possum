@@ -6,7 +6,7 @@ import { createRunStore, writeFindingArtifacts, writeJsonArtifact, writeRunRepor
 import { Finding } from "../src/contracts/findings.js";
 
 describe("run store", () => {
-  it("writes findings.json and report.md under .possum/runs/<id>", async () => {
+  it("writes findings.json, report.md, and report.html under .possum/runs/<id>", async () => {
     const root = await mkdtemp(join(tmpdir(), "possum-run-store-"));
     const store = createRunStore(root);
 
@@ -25,6 +25,10 @@ describe("run store", () => {
     );
     await expect(readFile(join(written.runDir, "report.md"), "utf8")).resolves.toContain(
       "# Possum Audit run_20260613_120000"
+    );
+    expect(written.reportHtmlPath).toBe(join(written.runDir, "report.html"));
+    await expect(readFile(written.reportHtmlPath, "utf8")).resolves.toContain(
+      "Possum Audit run_20260613_120000"
     );
   });
 });

@@ -3,6 +3,7 @@ import { dirname, join } from "node:path";
 import { Finding, RunReport, RunReportInput, RunReportSchema } from "../contracts/findings.js";
 import { PageSurface, PageSurfaceSchema } from "../contracts/surface.js";
 import { createDebugBundle, renderRepairHintsMarkdown } from "../debug/debugBundle.js";
+import { renderRunHtml } from "../report/renderHtml.js";
 import { renderFindingMarkdown, renderRunMarkdown } from "../report/renderMarkdown.js";
 
 export interface RunStore {
@@ -16,6 +17,7 @@ export interface WrittenRun {
   findingsJsonPath: string;
   playwrightConfigPath: string;
   reportMarkdownPath: string;
+  reportHtmlPath: string;
 }
 
 export interface FindingArtifacts {
@@ -37,13 +39,15 @@ export async function writeRunReport(store: RunStore, report: RunReportInput): P
   const findingsJsonPath = join(runDir, "findings.json");
   const playwrightConfigPath = join(runDir, "playwright.config.ts");
   const reportMarkdownPath = join(runDir, "report.md");
+  const reportHtmlPath = join(runDir, "report.html");
 
   await mkdir(runDir, { recursive: true });
   await writeFile(findingsJsonPath, `${JSON.stringify(parsed, null, 2)}\n`, "utf8");
   await writeFile(playwrightConfigPath, renderPlaywrightConfig(), "utf8");
   await writeFile(reportMarkdownPath, renderRunMarkdown(parsed), "utf8");
+  await writeFile(reportHtmlPath, renderRunHtml(parsed), "utf8");
 
-  return { runDir, findingsJsonPath, playwrightConfigPath, reportMarkdownPath };
+  return { runDir, findingsJsonPath, playwrightConfigPath, reportMarkdownPath, reportHtmlPath };
 }
 
 export async function writeJsonArtifact(
