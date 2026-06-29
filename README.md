@@ -19,6 +19,7 @@ Possum runs against a local web app, reads what the app claims to do, sends simu
 - Simulates beginner, impatient, hostile, and returning customers.
 - Tests claim-vs-reality from README, homepage, and product copy (opt-in, when a model is configured).
 - Writes plain-file evidence under `.possum/runs/<id>`.
+- Produces Markdown and browser-viewable HTML run reports (`report.md`, `report.html`).
 - Produces screenshots, persona traces, findings JSON/Markdown, Playwright repro scripts, `debug.json`, and `repair-hints.md` debugging bundles.
 - Filters findings through the local judge/dedupe gate so reports contain confirmed, reproduced, unique failures.
 - Replays generated repros with `possum replay <reproPath>`.
