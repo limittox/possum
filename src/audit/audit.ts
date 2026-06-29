@@ -42,6 +42,7 @@ export interface AuditResult {
   runId: string;
   runDir: string;
   reportMarkdownPath: string;
+  reportHtmlPath: string;
   findingsJsonPath: string;
   surfaceJsonPath?: string;
 }
@@ -214,6 +215,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     runId,
     runDir: written.runDir,
     reportMarkdownPath: written.reportMarkdownPath,
+    reportHtmlPath: written.reportHtmlPath,
     findingsJsonPath: written.findingsJsonPath,
     surfaceJsonPath
   };

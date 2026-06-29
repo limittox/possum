@@ -35,6 +35,7 @@ export interface FeatureVerificationResult {
   runId: string;
   runDir: string;
   reportMarkdownPath: string;
+  reportHtmlPath: string;
   findingsJsonPath: string;
   verificationJsonPath: string;
 }

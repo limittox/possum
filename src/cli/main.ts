@@ -155,6 +155,7 @@ export function buildProgram(deps: CliDependencies): Command {
 
       deps.stdout(`Possum feature verification created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`HTML Report: ${result.reportHtmlPath}`);
       deps.stdout(`Verification: ${result.verificationJsonPath}`);
     });
 
@@ -215,6 +216,7 @@ export function buildProgram(deps: CliDependencies): Command {
 
       deps.stdout(`Possum diff verification created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`HTML Report: ${result.reportHtmlPath}`);
       deps.stdout(`Verification: ${result.verificationJsonPath}`);
       deps.stdout(`Generated brief: ${briefOut ?? runBriefPath}`);
     });
@@ -250,6 +252,7 @@ export function buildProgram(deps: CliDependencies): Command {
 
       deps.stdout(`Possum app verification created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`HTML Report: ${result.reportHtmlPath}`);
       if (result.surfaceJsonPath) {
         deps.stdout(`Surface: ${result.surfaceJsonPath}`);
       }
@@ -286,6 +289,7 @@ export function buildProgram(deps: CliDependencies): Command {
 
       deps.stdout(`Possum audit created ${result.runId}`);
       deps.stdout(`Report: ${result.reportMarkdownPath}`);
+      deps.stdout(`HTML Report: ${result.reportHtmlPath}`);
       if (result.surfaceJsonPath) {
         deps.stdout(`Surface: ${result.surfaceJsonPath}`);
       }

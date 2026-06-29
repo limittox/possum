@@ -106,6 +106,7 @@ describe("CLI", () => {
 
     expect(output.join("\n")).toContain("Possum app verification created run_20260628_020000");
     expect(output.join("\n")).toContain("Report:");
+    expect(output.join("\n")).toContain("HTML Report:");
   });
 
   it("records a default auth session and updates possum.config.json", async () => {
@@ -149,6 +150,7 @@ describe("CLI", () => {
           runId: "run_auth",
           runDir: join(root, ".possum", "runs", "run_auth"),
           reportMarkdownPath: join(root, ".possum", "runs", "run_auth", "report.md"),
+          reportHtmlPath: join(root, ".possum", "runs", "run_auth", "report.html"),
           findingsJsonPath: join(root, ".possum", "runs", "run_auth", "findings.json")
         };
       }
@@ -188,6 +190,7 @@ describe("CLI", () => {
           runId: "run_auth_feature",
           runDir: join(root, ".possum", "runs", "run_auth_feature"),
           reportMarkdownPath: join(root, ".possum", "runs", "run_auth_feature", "report.md"),
+          reportHtmlPath: join(root, ".possum", "runs", "run_auth_feature", "report.html"),
           findingsJsonPath: join(root, ".possum", "runs", "run_auth_feature", "findings.json"),
           verificationJsonPath: join(root, ".possum", "runs", "run_auth_feature", "verification.json")
         };
@@ -226,6 +229,7 @@ describe("CLI", () => {
         runId: "run_20260628_020000",
         runDir: join(root, ".possum", "runs", "run_20260628_020000"),
         reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+        reportHtmlPath: join(root, ".possum", "runs", "run_20260628_020000", "report.html"),
         findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
         verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
       })
@@ -236,6 +240,7 @@ describe("CLI", () => {
     expect(output).toEqual([
       "Possum feature verification created run_20260628_020000",
       `Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.md")}`,
+      `HTML Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.html")}`,
       `Verification: ${join(root, ".possum", "runs", "run_20260628_020000", "verification.json")}`
     ]);
   });
@@ -275,6 +280,7 @@ describe("CLI", () => {
           runId: "run_20260628_020000",
           runDir: join(root, ".possum", "runs", "run_20260628_020000"),
           reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+          reportHtmlPath: join(root, ".possum", "runs", "run_20260628_020000", "report.html"),
           findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
           verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
         };
@@ -288,6 +294,7 @@ describe("CLI", () => {
     expect(output).toEqual([
       "Possum diff verification created run_20260628_020000",
       `Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.md")}`,
+      `HTML Report: ${join(root, ".possum", "runs", "run_20260628_020000", "report.html")}`,
       `Verification: ${join(root, ".possum", "runs", "run_20260628_020000", "verification.json")}`,
       `Generated brief: ${generatedPath}`
     ]);
@@ -318,6 +325,7 @@ describe("CLI", () => {
         runId: "run_20260628_020000",
         runDir: join(root, ".possum", "runs", "run_20260628_020000"),
         reportMarkdownPath: join(root, ".possum", "runs", "run_20260628_020000", "report.md"),
+        reportHtmlPath: join(root, ".possum", "runs", "run_20260628_020000", "report.html"),
         findingsJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "findings.json"),
         verificationJsonPath: join(root, ".possum", "runs", "run_20260628_020000", "verification.json")
       })

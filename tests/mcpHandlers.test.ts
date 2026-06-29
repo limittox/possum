@@ -160,6 +160,7 @@ describe("runPossumMcpTool", () => {
             runId: "run_auth_app",
             runDir,
             reportMarkdownPath: join(runDir, "report.md"),
+            reportHtmlPath: join(runDir, "report.html"),
             findingsJsonPath: join(runDir, "findings.json")
           };
         }
@@ -195,6 +196,7 @@ describe("runPossumMcpTool", () => {
           runId: "run_20260628_020000",
           runDir: join(rootDir, ".possum", "runs", "run_20260628_020000"),
           reportMarkdownPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.md"),
+          reportHtmlPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.html"),
           findingsJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "findings.json"),
           verificationJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "verification.json")
         })
@@ -237,6 +239,7 @@ describe("runPossumMcpTool", () => {
             runId: "run_auth_feature",
             runDir: join(rootDir, ".possum", "runs", "run_auth_feature"),
             reportMarkdownPath: join(rootDir, ".possum", "runs", "run_auth_feature", "report.md"),
+            reportHtmlPath: join(rootDir, ".possum", "runs", "run_auth_feature", "report.html"),
             findingsJsonPath: join(rootDir, ".possum", "runs", "run_auth_feature", "findings.json"),
             verificationJsonPath: join(rootDir, ".possum", "runs", "run_auth_feature", "verification.json")
           };
@@ -286,6 +289,7 @@ describe("runPossumMcpTool", () => {
             runId: "run_20260628_020000",
             runDir: join(rootDir, ".possum", "runs", "run_20260628_020000"),
             reportMarkdownPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.md"),
+            reportHtmlPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "report.html"),
             findingsJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "findings.json"),
             verificationJsonPath: join(rootDir, ".possum", "runs", "run_20260628_020000", "verification.json")
           };
@@ -339,6 +343,7 @@ describe("runPossumMcpTool", () => {
             runId: "run_auth_diff",
             runDir: join(rootDir, ".possum", "runs", "run_auth_diff"),
             reportMarkdownPath: join(rootDir, ".possum", "runs", "run_auth_diff", "report.md"),
+            reportHtmlPath: join(rootDir, ".possum", "runs", "run_auth_diff", "report.html"),
             findingsJsonPath: join(rootDir, ".possum", "runs", "run_auth_diff", "findings.json"),
             verificationJsonPath: join(rootDir, ".possum", "runs", "run_auth_diff", "verification.json")
           };
