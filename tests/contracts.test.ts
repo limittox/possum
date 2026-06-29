@@ -10,7 +10,7 @@ describe("PossumConfigSchema", () => {
     });
 
     expect(parsed.target.url).toBe("http://localhost:3000");
-    expect(parsed.personas).toEqual(["beginner", "impatient", "hostile"]);
+    expect(parsed.personas).toEqual(["beginner", "impatient", "hostile", "keyboard"]);
   });
 });
 

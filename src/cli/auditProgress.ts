@@ -4,6 +4,7 @@ const PHASE_START_LABELS: Record<AuditPhase, string> = {
   beginner: "beginner — loading first screen",
   impatient: "impatient — double-submitting first form",
   hostile: "hostile — submitting unexpected input",
+  keyboard: "keyboard — checking keyboard access",
   claims: "claims — verifying app claims"
 };
 

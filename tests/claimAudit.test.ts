@@ -63,7 +63,7 @@ describe("runAudit with claim verification", () => {
     expect(claimFinding).toBeDefined();
     expect(claimFinding.persona).toBe("claims");
     expect(claimFinding.reproducibility).toEqual({ status: "reproduced", attempts: 2 });
-    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "keyboard", "claims"]);
   }, 30_000);
 
   it("does not run claim verification when models are absent", async () => {
@@ -74,7 +74,7 @@ describe("runAudit with claim verification", () => {
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
     const claimFindings = report.findings.filter((finding: { persona: string }) => finding.persona === "claims");
     expect(claimFindings).toHaveLength(0);
-    expect(report.personas).toEqual(["beginner", "impatient", "hostile"]);
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "keyboard"]);
   }, 30_000);
 
   it("records a completion timestamp distinct from the start time", async () => {
@@ -115,18 +115,20 @@ describe("runAudit with claim verification", () => {
     });
 
     expect(events).toEqual([
-      { type: "phase-start", phase: "beginner", index: 1, total: 4 },
-      { type: "phase-done", phase: "beginner", index: 1, total: 4, findings: 0 },
-      { type: "phase-start", phase: "impatient", index: 2, total: 4 },
-      { type: "phase-done", phase: "impatient", index: 2, total: 4, findings: 0 },
-      { type: "phase-start", phase: "hostile", index: 3, total: 4 },
-      { type: "phase-done", phase: "hostile", index: 3, total: 4, findings: 0 },
-      { type: "phase-start", phase: "claims", index: 4, total: 4 },
+      { type: "phase-start", phase: "beginner", index: 1, total: 5 },
+      { type: "phase-done", phase: "beginner", index: 1, total: 5, findings: 0 },
+      { type: "phase-start", phase: "impatient", index: 2, total: 5 },
+      { type: "phase-done", phase: "impatient", index: 2, total: 5, findings: 0 },
+      { type: "phase-start", phase: "hostile", index: 3, total: 5 },
+      { type: "phase-done", phase: "hostile", index: 3, total: 5, findings: 0 },
+      { type: "phase-start", phase: "keyboard", index: 4, total: 5 },
+      { type: "phase-done", phase: "keyboard", index: 4, total: 5, findings: 0 },
+      { type: "phase-start", phase: "claims", index: 5, total: 5 },
       { type: "claim-start", index: 1, total: 1, claim: "Export your report as PDF" },
       { type: "claim-step", index: 1, total: 1, attempt: 1, attempts: 2, step: 1, maxSteps: 3 },
       { type: "claim-step", index: 1, total: 1, attempt: 2, attempts: 2, step: 1, maxSteps: 3 },
       { type: "claim-done", index: 1, total: 1, verdict: "unfulfilled" },
-      { type: "phase-done", phase: "claims", index: 4, total: 4, findings: 1 },
+      { type: "phase-done", phase: "claims", index: 5, total: 5, findings: 1 },
       { type: "judge-done", accepted: 1, candidates: 1 }
     ]);
   }, 30_000);
@@ -161,7 +163,7 @@ describe("runAudit with claim verification", () => {
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
     const markdown = await readFile(result.reportMarkdownPath, "utf8");
 
-    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "keyboard", "claims"]);
     expect(report.findings.some((finding: { persona: string }) => finding.persona === "claims")).toBe(false);
     expect(report.diagnostics).toEqual([
       {
@@ -198,7 +200,7 @@ describe("runAudit with claim verification", () => {
     const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
     const markdown = await readFile(result.reportMarkdownPath, "utf8");
 
-    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "claims"]);
+    expect(report.personas).toEqual(["beginner", "impatient", "hostile", "keyboard", "claims"]);
     expect(report.findings).toEqual([]);
     expect(report.diagnostics).toEqual([
       {
@@ -208,7 +210,7 @@ describe("runAudit with claim verification", () => {
       }
     ]);
     expect(markdown).toContain("Claims: inconclusive — claim triage timed out");
-    expect(events).toContainEqual({ type: "phase-done", phase: "claims", index: 4, total: 4, findings: 0 });
+    expect(events).toContainEqual({ type: "phase-done", phase: "claims", index: 5, total: 5, findings: 0 });
     expect(events).toContainEqual({ type: "judge-done", accepted: 0, candidates: 0 });
   }, 30_000);
 });

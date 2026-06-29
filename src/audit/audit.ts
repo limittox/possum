@@ -6,6 +6,7 @@ import { evaluateBeginnerPersona } from "../personas/beginner.js";
 import { evaluateClaimsPersona } from "../personas/claims.js";
 import { evaluateHostilePersona } from "../personas/hostile.js";
 import { evaluateImpatientPersona } from "../personas/impatient.js";
+import { evaluateKeyboardPersona } from "../personas/keyboard.js";
 import { createRunStore, writeFindingArtifacts, writeRunReport, writeSurface } from "../runs/runStore.js";
 import { formatRunId } from "./auditStub.js";
 import { ClaimPage } from "./claimPage.js";
@@ -14,6 +15,7 @@ import { createPlaywrightClaimPage } from "./playwrightClaimPage.js";
 import { judgeFindings } from "./findingJudge.js";
 import { HostileProbeResult, probeHostileValidation } from "./hostileProbe.js";
 import { DoubleSubmitProbeResult, probeImpatientDoubleSubmit } from "./impatientProbe.js";
+import { KeyboardProbeResult, probeKeyboardAccess } from "./keyboardProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 import { AuditProgressEvent } from "./progress.js";
@@ -56,10 +58,11 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   let surfaceJsonPath: string | undefined;
   let impatientDoubleSubmit: DoubleSubmitProbeResult | undefined;
   let hostileValidation: HostileProbeResult | undefined;
+  let keyboardAccess: KeyboardProbeResult | undefined;
   let managedRunCommand: ManagedRunCommand | undefined;
   const claimBrowsers: Browser[] = [];
   const report = input.onProgress ?? (() => {});
-  const total = 3 + (input.claimVerification ? 1 : 0);
+  const total = 4 + (input.claimVerification ? 1 : 0);
 
   try {
     if (input.runCommand) {
@@ -76,6 +79,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     const traceRelativePath = "personas/beginner/trace.json";
     const impatientTraceRelativePath = "personas/impatient/trace.json";
     const hostileTraceRelativePath = "personas/hostile/trace.json";
+    const keyboardTraceRelativePath = "personas/keyboard/trace.json";
     report({ type: "phase-start", phase: "beginner", index: 1, total });
     const surface = await probeTargetSurface({
       rootDir: input.rootDir,
@@ -121,8 +125,21 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     findings.push(...hostileFindings);
     report({ type: "phase-done", phase: "hostile", index: 3, total, findings: hostileFindings.length });
 
+    report({ type: "phase-start", phase: "keyboard", index: 4, total });
+    keyboardAccess = await probeKeyboardAccess({
+      targetUrl: input.targetUrl,
+      storageState: input.storageState,
+      trace: {
+        absolutePath: join(store.runsDir, runId, keyboardTraceRelativePath),
+        relativePath: keyboardTraceRelativePath
+      }
+    });
+    const keyboardFindings = evaluateKeyboardPersona({ runId, keyboard: keyboardAccess });
+    findings.push(...keyboardFindings);
+    report({ type: "phase-done", phase: "keyboard", index: 4, total, findings: keyboardFindings.length });
+
     if (input.claimVerification) {
-      report({ type: "phase-start", phase: "claims", index: 4, total });
+      report({ type: "phase-start", phase: "claims", index: 5, total });
       const claimFindingsBefore = findings.length;
       const verification = input.claimVerification;
       const pageFactory =
@@ -173,7 +190,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
       report({
         type: "phase-done",
         phase: "claims",
-        index: 4,
+        index: 5,
         total,
         findings: findings.length - claimFindingsBefore
       });
@@ -196,8 +213,8 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     startedAt: now.toISOString(),
     completedAt: completedAt.toISOString(),
     personas: input.claimVerification
-      ? ["beginner", "impatient", "hostile", "claims"]
-      : ["beginner", "impatient", "hostile"],
+      ? ["beginner", "impatient", "hostile", "keyboard", "claims"]
+      : ["beginner", "impatient", "hostile", "keyboard"],
     findings: acceptedFindings,
     ...(diagnostics.length > 0 ? { diagnostics } : {})
   });
@@ -205,7 +222,7 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   await Promise.all(
     acceptedFindings.map((finding) =>
       writeFindingArtifacts(store, runId, finding, {
-          trace: createFindingTrace(input.targetUrl, finding, { hostileValidation, impatientDoubleSubmit }),
+          trace: createFindingTrace(input.targetUrl, finding, { hostileValidation, impatientDoubleSubmit, keyboardAccess }),
           reproSpec: createFindingRepro(input.targetUrl, finding)
         })
       )
@@ -255,7 +272,11 @@ function createAccessFinding(runId: string, targetUrl: string, error: unknown): 
 function createFindingTrace(
   targetUrl: string,
   finding: Finding,
-  context: { hostileValidation?: HostileProbeResult; impatientDoubleSubmit?: DoubleSubmitProbeResult } = {}
+  context: {
+    hostileValidation?: HostileProbeResult;
+    impatientDoubleSubmit?: DoubleSubmitProbeResult;
+    keyboardAccess?: KeyboardProbeResult;
+  } = {}
 ): unknown {
   if (finding.id === "finding_impatient_double_submit_001" && context.impatientDoubleSubmit) {
     return {
@@ -273,6 +294,10 @@ function createFindingTrace(
     };
   }
 
+  if (finding.id.startsWith("finding_keyboard_") && context.keyboardAccess) {
+    return context.keyboardAccess;
+  }
+
   return {
     findingId: finding.id,
     persona: finding.persona,
@@ -287,11 +312,83 @@ function createFindingTrace(
 }
 
 function createFindingRepro(targetUrl: string, finding: Finding): string {
+  if (finding.id === "finding_keyboard_missing_name_001") {
+    return createKeyboardMissingNameRepro(targetUrl, finding.id);
+  }
+  if (finding.id === "finding_keyboard_non_focusable_control_001") {
+    return createKeyboardNonFocusableRepro(targetUrl, finding.id);
+  }
+  if (finding.id === "finding_keyboard_no_tabbable_control_001") {
+    return createKeyboardNoTabbableRepro(targetUrl, finding.id);
+  }
+
   return [
     'import { test } from "@playwright/test";',
     "",
     `test("${finding.id}", async ({ page }) => {`,
     `  await page.goto(${JSON.stringify(targetUrl)}, { waitUntil: "domcontentloaded", timeout: 5000 });`,
+    "});",
+    ""
+  ].join("\n");
+}
+
+function createKeyboardMissingNameRepro(targetUrl: string, findingId: string): string {
+  return createKeyboardRepro(
+    targetUrl,
+    findingId,
+    "const failed = controls.some((control) => control.visible && !control.disabled && control.name.length === 0);"
+  );
+}
+
+function createKeyboardNonFocusableRepro(targetUrl: string, findingId: string): string {
+  return createKeyboardRepro(
+    targetUrl,
+    findingId,
+    "const failed = controls.some((control) => control.visible && !control.disabled && control.customInteractive && !control.native && !control.focusable);"
+  );
+}
+
+function createKeyboardNoTabbableRepro(targetUrl: string, findingId: string): string {
+  return [
+    'import { expect, test } from "@playwright/test";',
+    "",
+    `test("${findingId}", async ({ page }) => {`,
+    `  await page.goto(${JSON.stringify(targetUrl)}, { waitUntil: "domcontentloaded", timeout: 5000 });`,
+    "  const controls = await page.locator('a[href],button,input:not([type=hidden]),textarea,select,summary,[role=button],[role=link],[role=checkbox],[role=radio],[role=switch],[role=tab],[role=menuitem],[onclick]').count();",
+    "  for (let index = 0; index < Math.min(Math.max(controls * 2, 8), 40); index += 1) {",
+    "    await page.keyboard.press('Tab');",
+    "  }",
+    "  const activeTag = await page.evaluate(() => document.activeElement?.tagName.toLowerCase());",
+    "  expect(activeTag === 'body' || activeTag === 'html').toBe(true);",
+    "});",
+    ""
+  ].join("\n");
+}
+
+function createKeyboardRepro(targetUrl: string, findingId: string, assertionLine: string): string {
+  return [
+    'import { expect, test } from "@playwright/test";',
+    "",
+    `test("${findingId}", async ({ page }) => {`,
+    `  await page.goto(${JSON.stringify(targetUrl)}, { waitUntil: "domcontentloaded", timeout: 5000 });`,
+    "  const failed = await page.evaluate(() => {",
+    "    const controls = Array.from(document.querySelectorAll('a[href],button,input:not([type=hidden]),textarea,select,summary,[role=button],[role=link],[role=checkbox],[role=radio],[role=switch],[role=tab],[role=menuitem],[onclick]')).map((element) => {",
+    "      const htmlElement = element;",
+    "      const style = window.getComputedStyle(htmlElement);",
+    "      const rect = htmlElement.getBoundingClientRect();",
+    "      const text = (htmlElement.innerText || htmlElement.textContent || '').replace(/\\s+/g, ' ').trim();",
+    "      const name = (htmlElement.getAttribute('aria-label') || text || htmlElement.getAttribute('title') || htmlElement.getAttribute('placeholder') || '').replace(/\\s+/g, ' ').trim();",
+    "      const role = htmlElement.getAttribute('role') || '';",
+    "      const native = ['a', 'button', 'input', 'textarea', 'select', 'summary'].includes(htmlElement.tagName.toLowerCase());",
+    "      const customInteractive = ['button', 'link', 'checkbox', 'radio', 'switch', 'tab', 'menuitem'].includes(role) || htmlElement.hasAttribute('onclick');",
+    "      const tabindex = htmlElement.getAttribute('tabindex');",
+    "      const focusable = tabindex !== null ? Number.parseInt(tabindex, 10) >= 0 : native;",
+    "      return { visible: style.visibility !== 'hidden' && style.display !== 'none' && rect.width > 0 && rect.height > 0, disabled: htmlElement.hasAttribute('disabled') || htmlElement.getAttribute('aria-disabled') === 'true', name, native, customInteractive, focusable };",
+    "    });",
+    `    ${assertionLine}`,
+    "    return failed;",
+    "  });",
+    "  expect(failed).toBe(true);",
     "});",
     ""
   ].join("\n");

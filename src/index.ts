@@ -8,6 +8,7 @@ export * from "./diff/gitDiff.js";
 export * from "./doctor/doctor.js";
 export * from "./mcp/server.js";
 export * from "./personas/beginner.js";
+export * from "./personas/keyboard.js";
 export * from "./report/renderMarkdown.js";
 export * from "./replay/replayCommand.js";
 export * from "./runs/runStore.js";

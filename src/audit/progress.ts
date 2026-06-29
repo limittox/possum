@@ -1,4 +1,4 @@
-export type AuditPhase = "beginner" | "impatient" | "hostile" | "claims";
+export type AuditPhase = "beginner" | "impatient" | "hostile" | "keyboard" | "claims";
 
 export type ClaimProgressVerdict = "fulfilled" | "unfulfilled" | "inconclusive";
 export type FeatureProgressVerdict = "passed" | "failed" | "inconclusive";

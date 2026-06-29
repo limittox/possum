@@ -15,7 +15,7 @@ describe("PossumConfigSchema v1.1 app config", () => {
 
     expect(parsed.target.url).toBe("http://localhost:3000");
     expect(parsed.target.command).toBeUndefined();
-    expect(parsed.personas).toEqual(["beginner", "impatient", "hostile"]);
+    expect(parsed.personas).toEqual(["beginner", "impatient", "hostile", "keyboard"]);
   });
 
   it("accepts target.command as the optional startup command", () => {
