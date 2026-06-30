@@ -23,3 +23,8 @@ Fix order:
 3. Generate repro specs with the actual failing persona actions.
 4. Make the impatient form probe fill required fields or skip disabled submits without noisy findings.
 5. Add a visual QA pass for obvious screenshot/style defects such as blur, low opacity, transforms, overlap, clipping, and unreadable text.
+
+Implemented:
+
+- 2026-07-01: browser-blocked target ports are rejected before app startup.
+- 2026-07-01: impatient, hostile, and keyboard probe exceptions are recorded as inconclusive diagnostics instead of beginner access findings.

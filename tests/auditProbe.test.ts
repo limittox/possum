@@ -109,6 +109,24 @@ async function serveDoubleSubmitForm(): Promise<{ targetUrl: string; submissions
   return { targetUrl: `http://127.0.0.1:${address.port}`, submissions: () => submissions };
 }
 
+async function serveDisabledSubmitForm(): Promise<string> {
+  const server = createServer((_request, response) => {
+    response.writeHead(200, { "content-type": "text/html" });
+    response.end(`<!doctype html>
+      <title>Disabled Submit</title>
+      <h1>Create account</h1>
+      <form>
+        <input name="email" required />
+        <button type="submit" disabled>Create account</button>
+      </form>`);
+  });
+  servers.push(server);
+
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
+  const address = server.address() as AddressInfo;
+  return `http://127.0.0.1:${address.port}`;
+}
+
 async function serveHostileErrorForm(): Promise<{ targetUrl: string; submissions: () => number }> {
   let submissions = 0;
   const server = createServer((request, response) => {
@@ -329,6 +347,34 @@ describe("runAudit", () => {
     await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain(
       '"action": "double_submit"'
     );
+  });
+
+  it("records impatient probe failures as diagnostics without beginner access findings", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-impatient-diagnostic-"));
+    const targetUrl = await serveDisabledSubmitForm();
+    const events: import("../src/audit/progress.js").AuditProgressEvent[] = [];
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl,
+      onProgress: (event) => events.push(event),
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const report = JSON.parse(await readFile(result.findingsJsonPath, "utf8"));
+    const findingIds = report.findings.map((finding: { id: string }) => finding.id);
+    expect(findingIds).not.toContain("finding_beginner_access_001");
+    expect(report.diagnostics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          phase: "impatient",
+          status: "inconclusive",
+          reason: expect.stringContaining("locator.dblclick")
+        })
+      ])
+    );
+    expect(events).toContainEqual({ type: "phase-start", phase: "keyboard", index: 4, total: 4 });
+    expect(events).toContainEqual({ type: "judge-done", accepted: expect.any(Number), candidates: expect.any(Number) });
   });
 
   it("reports a hostile finding when unexpected input causes a server error", async () => {

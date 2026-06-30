@@ -103,43 +103,58 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
     report({ type: "phase-done", phase: "beginner", index: 1, total, findings: beginnerFindings.length });
 
     report({ type: "phase-start", phase: "impatient", index: 2, total });
-    impatientDoubleSubmit = await probeImpatientDoubleSubmit({
-      targetUrl: input.targetUrl,
-      storageState: input.storageState,
-      trace: {
-        absolutePath: join(store.runsDir, runId, impatientTraceRelativePath),
-        relativePath: impatientTraceRelativePath
-      }
-    });
-    const impatientFindings = evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit });
-    findings.push(...impatientFindings);
-    report({ type: "phase-done", phase: "impatient", index: 2, total, findings: impatientFindings.length });
+    try {
+      impatientDoubleSubmit = await probeImpatientDoubleSubmit({
+        targetUrl: input.targetUrl,
+        storageState: input.storageState,
+        trace: {
+          absolutePath: join(store.runsDir, runId, impatientTraceRelativePath),
+          relativePath: impatientTraceRelativePath
+        }
+      });
+      const impatientFindings = evaluateImpatientPersona({ runId, doubleSubmit: impatientDoubleSubmit });
+      findings.push(...impatientFindings);
+      report({ type: "phase-done", phase: "impatient", index: 2, total, findings: impatientFindings.length });
+    } catch (error) {
+      diagnostics.push(createInconclusiveDiagnostic("impatient", formatUnknownError(error)));
+      report({ type: "phase-done", phase: "impatient", index: 2, total, findings: 0 });
+    }
 
     report({ type: "phase-start", phase: "hostile", index: 3, total });
-    hostileValidation = await probeHostileValidation({
-      targetUrl: input.targetUrl,
-      storageState: input.storageState,
-      trace: {
-        absolutePath: join(store.runsDir, runId, hostileTraceRelativePath),
-        relativePath: hostileTraceRelativePath
-      }
-    });
-    const hostileFindings = evaluateHostilePersona({ runId, validation: hostileValidation });
-    findings.push(...hostileFindings);
-    report({ type: "phase-done", phase: "hostile", index: 3, total, findings: hostileFindings.length });
+    try {
+      hostileValidation = await probeHostileValidation({
+        targetUrl: input.targetUrl,
+        storageState: input.storageState,
+        trace: {
+          absolutePath: join(store.runsDir, runId, hostileTraceRelativePath),
+          relativePath: hostileTraceRelativePath
+        }
+      });
+      const hostileFindings = evaluateHostilePersona({ runId, validation: hostileValidation });
+      findings.push(...hostileFindings);
+      report({ type: "phase-done", phase: "hostile", index: 3, total, findings: hostileFindings.length });
+    } catch (error) {
+      diagnostics.push(createInconclusiveDiagnostic("hostile", formatUnknownError(error)));
+      report({ type: "phase-done", phase: "hostile", index: 3, total, findings: 0 });
+    }
 
     report({ type: "phase-start", phase: "keyboard", index: 4, total });
-    keyboardAccess = await probeKeyboardAccess({
-      targetUrl: input.targetUrl,
-      storageState: input.storageState,
-      trace: {
-        absolutePath: join(store.runsDir, runId, keyboardTraceRelativePath),
-        relativePath: keyboardTraceRelativePath
-      }
-    });
-    const keyboardFindings = evaluateKeyboardPersona({ runId, keyboard: keyboardAccess });
-    findings.push(...keyboardFindings);
-    report({ type: "phase-done", phase: "keyboard", index: 4, total, findings: keyboardFindings.length });
+    try {
+      keyboardAccess = await probeKeyboardAccess({
+        targetUrl: input.targetUrl,
+        storageState: input.storageState,
+        trace: {
+          absolutePath: join(store.runsDir, runId, keyboardTraceRelativePath),
+          relativePath: keyboardTraceRelativePath
+        }
+      });
+      const keyboardFindings = evaluateKeyboardPersona({ runId, keyboard: keyboardAccess });
+      findings.push(...keyboardFindings);
+      report({ type: "phase-done", phase: "keyboard", index: 4, total, findings: keyboardFindings.length });
+    } catch (error) {
+      diagnostics.push(createInconclusiveDiagnostic("keyboard", formatUnknownError(error)));
+      report({ type: "phase-done", phase: "keyboard", index: 4, total, findings: 0 });
+    }
 
     if (input.claimVerification) {
       report({ type: "phase-start", phase: "claims", index: 5, total });
@@ -182,12 +197,12 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
           );
         });
         summary.inconclusiveReasons.forEach((reason) => {
-          diagnostics.push(createClaimsInconclusiveDiagnostic(reason));
+          diagnostics.push(createInconclusiveDiagnostic("claims", reason));
         });
       } catch (error) {
         // Claim verification depends on external LLM infrastructure. A triage/provider failure is inconclusive,
         // not evidence that the app is unreachable or that a claim is unfulfilled.
-        diagnostics.push(createClaimsInconclusiveDiagnostic(formatUnknownError(error)));
+        diagnostics.push(createInconclusiveDiagnostic("claims", formatUnknownError(error)));
       }
 
       report({
@@ -241,8 +256,8 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   };
 }
 
-function createClaimsInconclusiveDiagnostic(reason: string): RunDiagnostic {
-  return { phase: "claims", status: "inconclusive", reason };
+function createInconclusiveDiagnostic(phase: RunDiagnostic["phase"], reason: string): RunDiagnostic {
+  return { phase, status: "inconclusive", reason };
 }
 
 function formatUnknownError(error: unknown): string {

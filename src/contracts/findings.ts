@@ -28,7 +28,7 @@ export const FindingSchema = z.object({
 });
 
 export const RunDiagnosticSchema = z.object({
-  phase: z.enum(["claims"]),
+  phase: z.enum(["impatient", "hostile", "keyboard", "claims"]),
   status: z.enum(["inconclusive"]),
   reason: z.string().min(1)
 });
