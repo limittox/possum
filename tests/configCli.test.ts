@@ -119,7 +119,7 @@ describe("CLI app config", () => {
       join(root, "possum.config.json"),
       JSON.stringify({
         target: {
-          url: "http://127.0.0.1:1",
+          url: "http://127.0.0.1:65534",
           command: `node -e "console.log('unsafe')" > ${JSON.stringify(markerPath)}`
         }
       }),

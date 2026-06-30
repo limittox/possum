@@ -1,4 +1,5 @@
 import { spawn, type ChildProcess } from "node:child_process";
+import { assertBrowserAllowedTargetUrl } from "./targetUrl.js";
 
 export interface StartRunCommandInput {
   command: string;
@@ -23,6 +24,8 @@ interface RunCommandExit {
 }
 
 export async function startRunCommand(input: StartRunCommandInput): Promise<ManagedRunCommand> {
+  assertBrowserAllowedTargetUrl(input.targetUrl);
+
   const parsedCommand = parseRunCommand(input.command);
   const child = spawn(parsedCommand.executable, parsedCommand.args, {
     cwd: input.cwd,

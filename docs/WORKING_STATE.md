@@ -154,7 +154,7 @@ Smoke verification:
 
 ```bash
 node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
-node dist/src/cli/main.js audit --command "node -e \"console.log('unsafe')\" > /tmp/possum-sandbox-smoke.txt" --url http://127.0.0.1:9
+node dist/src/cli/main.js audit --command "node -e \"console.log('unsafe')\" > /tmp/possum-sandbox-smoke.txt" --url http://127.0.0.1:65534
 ```
 
 Verification output showed:

@@ -19,6 +19,7 @@ import { KeyboardProbeResult, probeKeyboardAccess } from "./keyboardProbe.js";
 import { ManagedRunCommand, startRunCommand } from "./runCommand.js";
 import { probeTargetSurface } from "./surfaceProbe.js";
 import { AuditProgressEvent } from "./progress.js";
+import { assertBrowserAllowedTargetUrl } from "./targetUrl.js";
 
 export interface AuditClaimVerification {
   llm: LlmClient;
@@ -65,6 +66,8 @@ export async function runAudit(input: AuditInput): Promise<AuditResult> {
   const total = 4 + (input.claimVerification ? 1 : 0);
 
   try {
+    assertBrowserAllowedTargetUrl(input.targetUrl);
+
     if (input.runCommand) {
       report({ type: "app-starting", command: input.runCommand });
       managedRunCommand = await startRunCommand({

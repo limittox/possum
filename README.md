@@ -274,6 +274,8 @@ Or let Possum start the fixture for the audit:
 node dist/src/cli/main.js audit --command "PORT=4180 node fixtures/apps/beginner-dead-end/server.mjs" --url http://127.0.0.1:4180
 ```
 
+Avoid browser-blocked ports such as `4190`; Possum rejects them before starting the app because Playwright and Node `fetch()` cannot reach them.
+
 Fixtures cover `finding_beginner_dead_end_001`, `finding_impatient_double_submit_001`, and `finding_hostile_server_error_001`.
 
 ## Run Command Sandbox

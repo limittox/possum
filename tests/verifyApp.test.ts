@@ -10,7 +10,7 @@ describe("verifyApp", () => {
 
     const result = await verifyApp({
       rootDir,
-      targetUrl: "http://127.0.0.1:9",
+      targetUrl: "http://127.0.0.1:65534",
       now: new Date("2026-06-28T02:00:00.000Z")
     });
 

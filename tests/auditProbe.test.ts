@@ -245,7 +245,7 @@ describe("runAudit", () => {
 
     const result = await runAudit({
       rootDir: root,
-      targetUrl: "http://127.0.0.1:9",
+      targetUrl: "http://127.0.0.1:65534",
       runCommand: `node -e "console.log('unsafe')" > ${JSON.stringify(markerPath)}`,
       now: new Date("2026-06-13T02:00:00.000Z")
     });
@@ -261,7 +261,7 @@ describe("runAudit", () => {
 
     const result = await runAudit({
       rootDir: root,
-      targetUrl: "http://127.0.0.1:9",
+      targetUrl: "http://127.0.0.1:65534",
       runCommand: "missing-possum-dev-command --port 3000",
       now: new Date("2026-06-13T02:00:00.000Z")
     });
@@ -270,6 +270,22 @@ describe("runAudit", () => {
     expect(findingsJson).toContain("finding_beginner_access_001");
     expect(findingsJson).toContain("Run command failed to start");
     expect(findingsJson).toContain("missing-possum-dev-command");
+  });
+
+  it("reports a clear access finding for browser-blocked target ports", async () => {
+    const root = await mkdtemp(join(tmpdir(), "possum-blocked-port-audit-"));
+
+    const result = await runAudit({
+      rootDir: root,
+      targetUrl: "http://127.0.0.1:4190",
+      runCommand: "missing-possum-dev-command --port 4190",
+      now: new Date("2026-06-13T02:00:00.000Z")
+    });
+
+    const findingsJson = await readFile(join(result.runDir, "findings.json"), "utf8");
+    expect(findingsJson).toContain("Port 4190 is blocked by browser security");
+    expect(findingsJson).toContain("Use a different local port");
+    expect(findingsJson).not.toContain("missing-possum-dev-command");
   });
 
   it("reports a beginner dead-end finding for a reachable page with no actions", async () => {
@@ -345,7 +361,7 @@ describe("runAudit", () => {
 
     const result = await runAudit({
       rootDir: root,
-      targetUrl: "http://127.0.0.1:9",
+      targetUrl: "http://127.0.0.1:65534",
       now: new Date("2026-06-13T02:00:00.000Z")
     });
 
@@ -359,7 +375,7 @@ describe("runAudit", () => {
 
     const result = await runAudit({
       rootDir: root,
-      targetUrl: "http://127.0.0.1:9",
+      targetUrl: "http://127.0.0.1:65534",
       now: new Date("2026-06-13T02:00:00.000Z")
     });
 
@@ -369,7 +385,7 @@ describe("runAudit", () => {
     );
     await expect(readFile(join(findingDir, "trace.json"), "utf8")).resolves.toContain("\"navigate\"");
     await expect(readFile(join(findingDir, "repro.spec.ts"), "utf8")).resolves.toContain(
-      "http://127.0.0.1:9"
+      "http://127.0.0.1:65534"
     );
     await expect(readFile(join(result.runDir, "playwright.config.ts"), "utf8")).resolves.toContain(
       "testDir: \".\""

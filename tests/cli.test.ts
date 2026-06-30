@@ -41,7 +41,7 @@ describe("CLI", () => {
       now: new Date("2026-06-13T02:00:00.000Z")
     });
 
-    await program.parseAsync(["node", "possum", "audit", "--url", "http://127.0.0.1:9"]);
+    await program.parseAsync(["node", "possum", "audit", "--url", "http://127.0.0.1:65534"]);
 
     // Progress lines go to stderr only.
     expect(stderr.join("\n")).toContain("possum: [1/4] beginner");
@@ -102,7 +102,7 @@ describe("CLI", () => {
       now: new Date("2026-06-28T02:00:00.000Z")
     });
 
-    await program.parseAsync(["node", "possum", "verify-app", "--url", "http://127.0.0.1:9"]);
+    await program.parseAsync(["node", "possum", "verify-app", "--url", "http://127.0.0.1:65534"]);
 
     expect(output.join("\n")).toContain("Possum app verification created run_20260628_020000");
     expect(output.join("\n")).toContain("Report:");
