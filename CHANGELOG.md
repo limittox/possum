@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.6.0 - 2026-06-30
+
+### Added
+
+- Keyboard accessibility persona and browser probe.
+- Keyboard findings for missing accessible names, non-focusable custom controls, and pages with visible controls unreachable by Tab.
+- `keyboard-inaccessible` fixture app covering keyboard accessibility failures.
+
+### Changed
+
+- App audits and app verification now run the keyboard persona by default.
+- README fixture documentation now describes the keyboard persona fixture and expected finding.
+
 ## 0.5.0 - 2026-06-30
 
 ### Added
